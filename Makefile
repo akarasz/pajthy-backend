@@ -1,7 +1,7 @@
 .DEFAULT_GOAL := run
 
 version = `git fetch --tags >/dev/null && git describe --tags | cut -c 2-`
-docker_container = akarasz/yahtzee
+docker_container = akarasz/pajthy-backend
 docker_tags = $(version),latest
 
 .PHONY := build
