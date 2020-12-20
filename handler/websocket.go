@@ -7,6 +7,8 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/gorilla/websocket"
+
+	"github.com/akarasz/pajthy-backend/event"
 )
 
 const (
@@ -18,15 +20,20 @@ var upgrader = websocket.Upgrader{
 	CheckOrigin: func(r *http.Request) bool { return true },
 }
 
-func writer(ws *websocket.Conn) {
+func writer(ws *websocket.Conn, sessionID string, msgs <-chan interface{}) {
 	pingTicker := time.NewTicker(pingPeriod)
 	defer func() {
+		event.Unsubscribe(sessionID, ws)
 		pingTicker.Stop()
 		ws.Close()
 	}()
 
 	for {
 		select {
+		case msg := <-msgs:
+			if err := ws.WriteJSON(msg); err != nil {
+				return
+			}
 		case <-pingTicker.C:
 			if err := ws.WriteMessage(websocket.PingMessage, []byte{}); err != nil {
 				return
@@ -35,8 +42,9 @@ func writer(ws *websocket.Conn) {
 	}
 }
 
-func reader(ws *websocket.Conn) {
+func reader(ws *websocket.Conn, sessionID string) {
 	defer func() {
+		event.Unsubscribe(sessionID, ws)
 		ws.Close()
 	}()
 	ws.SetReadLimit(512)
@@ -65,10 +73,16 @@ func WS(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	c, err := event.SubscribeEngineer(session, ws)
+	if err != nil {
+		http.Error(w, "unable to subscribe", http.StatusInternalServerError)
+		return
+	}
+
 	log.Printf("ws %q", session)
 
-	go writer(ws)
-	reader(ws)
+	go writer(ws, session, c)
+	reader(ws, session)
 }
 
 func ControlWS(w http.ResponseWriter, r *http.Request) {
@@ -86,8 +100,14 @@ func ControlWS(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	c, err := event.SubscribeScrumMaster(session, ws)
+	if err != nil {
+		http.Error(w, "unable to subscribe", http.StatusInternalServerError)
+		return
+	}
+
 	log.Printf("control ws %q", session)
 
-	go writer(ws)
-	reader(ws)
+	go writer(ws, session, c)
+	reader(ws, session)
 }

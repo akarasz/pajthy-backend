@@ -5,6 +5,7 @@ import (
 	"math/rand"
 
 	"github.com/akarasz/pajthy-backend/domain"
+	"github.com/akarasz/pajthy-backend/event"
 	"github.com/akarasz/pajthy-backend/store"
 )
 
@@ -91,6 +92,10 @@ func Vote(id string, v *domain.Vote) error {
 		return err
 	}
 
+	if len(s.Votes) == len(s.Participants) {
+		event.EmitVoteDisabled(id)
+	}
+
 	return nil
 }
 
@@ -117,6 +122,8 @@ func StartVote(id string) error {
 		return err
 	}
 
+	event.EmitVoteEnabled(id)
+
 	return nil
 }
 
@@ -133,6 +140,8 @@ func ResetVote(id string) error {
 	if err != nil {
 		return err
 	}
+
+	event.EmitVoteDisabled(id)
 
 	return nil
 }
