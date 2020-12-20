@@ -2,12 +2,14 @@ package handler
 
 import (
 	"encoding/json"
-	"net/http"
-	"io/ioutil"
 	"fmt"
+	"io/ioutil"
 	"log"
+	"net/http"
 
 	"github.com/gorilla/mux"
+
+	"github.com/akarasz/pajthy-backend/domain"
 )
 
 func CreateSession(w http.ResponseWriter, r *http.Request) {
@@ -26,7 +28,7 @@ func Choices(w http.ResponseWriter, r *http.Request) {
 
 	log.Printf("choices %q", session)
 
-	res := "res"
+	res := []string{"option #1", "option #2", "option #3"}
 
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(res); err != nil {
@@ -42,14 +44,18 @@ func Vote(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	body, err := ioutil.ReadAll(r.Body)
+	var body domain.Vote
+	rawBody, err := ioutil.ReadAll(r.Body)
 	if err != nil {
 		http.Error(w, "wrong body", http.StatusBadRequest)
 		return
 	}
-	bodyString := string(body)
+	if err := json.Unmarshal(rawBody, &body); err != nil {
+		http.Error(w, "request json decoding", http.StatusBadRequest)
+		return
+	}
 
-	log.Printf("vote %q %q", session, bodyString)
+	log.Printf("vote %q %q", session, body)
 
 	w.WriteHeader(http.StatusAccepted)
 }
@@ -63,7 +69,12 @@ func GetSession(w http.ResponseWriter, r *http.Request) {
 
 	log.Printf("get session %q", session)
 
-	res := "res"
+	res := domain.Session{
+		Choices:      []string{},
+		Participants: []string{},
+		Votes:        []domain.Vote{},
+		Open:         false,
+	}
 
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(res); err != nil {
@@ -103,14 +114,14 @@ func KickParticipant(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	body, err := ioutil.ReadAll(r.Body)
+	rawBody, err := ioutil.ReadAll(r.Body)
 	if err != nil {
 		http.Error(w, "wrong body", http.StatusBadRequest)
 		return
 	}
-	bodyString := string(body)
+	body := string(rawBody)
 
-	log.Printf("kick participant %q %q", session, bodyString)
+	log.Printf("kick participant %q %q", session, body)
 
 	w.WriteHeader(http.StatusNoContent)
 }
@@ -122,7 +133,7 @@ func ControlWS(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.Print("control ws", session)
+	log.Printf("control ws %q", session)
 
 	w.WriteHeader(http.StatusOK)
 }
@@ -134,14 +145,14 @@ func Join(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	body, err := ioutil.ReadAll(r.Body)
+	rawBody, err := ioutil.ReadAll(r.Body)
 	if err != nil {
 		http.Error(w, "wrong body", http.StatusBadRequest)
 		return
 	}
-	bodyString := string(body)
+	body := string(rawBody)
 
-	log.Printf("join %q %q", session, bodyString)
+	log.Printf("join %q %q", session, body)
 
 	w.WriteHeader(http.StatusCreated)
 }

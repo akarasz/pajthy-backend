@@ -1,8 +1,8 @@
 package main
 
 import (
-	"net/http"
 	"log"
+	"net/http"
 
 	"github.com/gorilla/mux"
 
@@ -32,7 +32,6 @@ func main() {
 		Methods("PUT")
 	r.HandleFunc("/{session}/ws", handler.WS).
 		Methods("GET")
-
 
 	log.Fatal(http.ListenAndServe(":8000", r))
 }
