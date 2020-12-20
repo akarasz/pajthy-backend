@@ -6,8 +6,17 @@ type Vote struct {
 }
 
 type Session struct {
-	Choices      []string
-	Participants []string
-	Votes        []Vote
+	Choices      map[string]interface{}
+	Participants map[string]interface{}
+	Votes        []*Vote
 	Open         bool
+}
+
+func NewSession() *Session {
+	return &Session{
+		Choices:      map[string]interface{}{},
+		Participants: map[string]interface{}{},
+		Votes:        []*Vote{},
+		Open:         false,
+	}
 }

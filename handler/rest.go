@@ -2,6 +2,7 @@ package handler
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -11,14 +12,26 @@ import (
 
 	"github.com/akarasz/pajthy-backend/controller"
 	"github.com/akarasz/pajthy-backend/domain"
+	"github.com/akarasz/pajthy-backend/store"
 )
 
 func CreateSession(w http.ResponseWriter, r *http.Request) {
 	log.Print("create session")
 
-	id, err := controller.CreateSession()
+	var body []string
+	rawBody, err := ioutil.ReadAll(r.Body)
 	if err != nil {
-		http.Error(w, "error create session", http.StatusInternalServerError)
+		http.Error(w, "wrong body", http.StatusBadRequest)
+		return
+	}
+	if err := json.Unmarshal(rawBody, &body); err != nil {
+		http.Error(w, "request json decoding", http.StatusBadRequest)
+		return
+	}
+
+	id, err := controller.CreateSession(body)
+	if err != nil {
+		handleControllerError(w, err)
 		return
 	}
 
@@ -37,7 +50,7 @@ func Choices(w http.ResponseWriter, r *http.Request) {
 
 	res, err := controller.Choices(session)
 	if err != nil {
-		http.Error(w, "error getting choices", http.StatusInternalServerError)
+		handleControllerError(w, err)
 		return
 	}
 
@@ -70,7 +83,7 @@ func Vote(w http.ResponseWriter, r *http.Request) {
 
 	err = controller.Vote(session, &body)
 	if err != nil {
-		http.Error(w, "error vote", http.StatusInternalServerError)
+		handleControllerError(w, err)
 		return
 	}
 
@@ -86,10 +99,23 @@ func GetSession(w http.ResponseWriter, r *http.Request) {
 
 	log.Printf("get session %q", session)
 
-	res, err := controller.GetSession(session)
+	rawRes, err := controller.GetSession(session)
 	if err != nil {
-		http.Error(w, "error get session", http.StatusInternalServerError)
+		handleControllerError(w, err)
 		return
+	}
+
+	res := SessionRes{
+		Choices:      []string{},
+		Participants: []string{},
+		Votes:        rawRes.Votes,
+		Open:         rawRes.Open,
+	}
+	for c := range rawRes.Choices {
+		res.Choices = append(res.Choices, c)
+	}
+	for p := range rawRes.Participants {
+		res.Participants = append(res.Participants, p)
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -97,6 +123,13 @@ func GetSession(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "response json encoding", http.StatusInternalServerError)
 		return
 	}
+}
+
+type SessionRes struct {
+	Choices      []string
+	Participants []string
+	Votes        []*domain.Vote
+	Open         bool
 }
 
 func StartVote(w http.ResponseWriter, r *http.Request) {
@@ -110,7 +143,7 @@ func StartVote(w http.ResponseWriter, r *http.Request) {
 
 	err := controller.StartVote(session)
 	if err != nil {
-		http.Error(w, "error start vote", http.StatusInternalServerError)
+		handleControllerError(w, err)
 		return
 	}
 
@@ -128,7 +161,7 @@ func ResetVote(w http.ResponseWriter, r *http.Request) {
 
 	err := controller.ResetVote(session)
 	if err != nil {
-		http.Error(w, "error reset vote", http.StatusInternalServerError)
+		handleControllerError(w, err)
 		return
 	}
 
@@ -153,7 +186,7 @@ func KickParticipant(w http.ResponseWriter, r *http.Request) {
 
 	err = controller.KickParticipant(session, body)
 	if err != nil {
-		http.Error(w, "error kick participant", http.StatusInternalServerError)
+		handleControllerError(w, err)
 		return
 	}
 
@@ -178,9 +211,17 @@ func Join(w http.ResponseWriter, r *http.Request) {
 
 	err = controller.Join(session, body)
 	if err != nil {
-		http.Error(w, "error join", http.StatusInternalServerError)
+		handleControllerError(w, err)
 		return
 	}
 
 	w.WriteHeader(http.StatusCreated)
+}
+
+func handleControllerError(w http.ResponseWriter, err error) {
+	if errors.Is(err, store.ErrNotExists) {
+		http.Error(w, fmt.Sprintf("%v", err), http.StatusNotFound)
+	} else {
+		http.Error(w, fmt.Sprintf("%v", err), http.StatusInternalServerError)
+	}
 }

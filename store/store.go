@@ -1,4 +1,4 @@
-package storage
+package store
 
 import (
 	"errors"
@@ -7,7 +7,7 @@ import (
 )
 
 var (
-	ErrNotExists = errors.New("not exists")
+	ErrNotExists = errors.New("session not exists")
 )
 
 var repository map[string]*domain.Session
