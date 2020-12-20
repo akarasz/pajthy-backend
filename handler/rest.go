@@ -126,18 +126,6 @@ func KickParticipant(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-func ControlWS(w http.ResponseWriter, r *http.Request) {
-	session, ok := mux.Vars(r)["session"]
-	if !ok {
-		http.Error(w, "wrong session", http.StatusBadRequest)
-		return
-	}
-
-	log.Printf("control ws %q", session)
-
-	w.WriteHeader(http.StatusOK)
-}
-
 func Join(w http.ResponseWriter, r *http.Request) {
 	session, ok := mux.Vars(r)["session"]
 	if !ok {
@@ -155,16 +143,4 @@ func Join(w http.ResponseWriter, r *http.Request) {
 	log.Printf("join %q %q", session, body)
 
 	w.WriteHeader(http.StatusCreated)
-}
-
-func WS(w http.ResponseWriter, r *http.Request) {
-	session, ok := mux.Vars(r)["session"]
-	if !ok {
-		http.Error(w, "wrong session", http.StatusBadRequest)
-		return
-	}
-
-	log.Printf("ws %q", session)
-
-	w.WriteHeader(http.StatusOK)
 }
