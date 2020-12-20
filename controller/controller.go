@@ -20,9 +20,7 @@ func CreateSession(choices []string) (string, error) {
 	id := generateID()
 
 	s := domain.NewSession()
-	for _, c := range choices {
-		s.Choices[c] = struct{}{}
-	}
+	s.Choices = choices
 
 	if err := store.Save(id, s); err != nil {
 		return id, err
@@ -50,12 +48,7 @@ func Choices(id string) ([]string, error) {
 		return []string{}, err
 	}
 
-	res := []string{}
-	for k := range s.Choices {
-		res = append(res, k)
-	}
-
-	return res, nil
+	return s.Choices, nil
 }
 
 func Vote(id string, v *domain.Vote) error {
@@ -68,11 +61,25 @@ func Vote(id string, v *domain.Vote) error {
 		return ErrSessionIsClosed
 	}
 
-	if _, exists := s.Participants[v.Participant]; !exists {
+	exists := false
+	for _, p := range s.Participants {
+		if p == v.Participant {
+			exists = true
+			break
+		}
+	}
+	if !exists {
 		return ErrVoterNotExists
 	}
 
-	if _, exists := s.Choices[v.Choice]; !exists {
+	exists = false
+	for _, c := range s.Choices {
+		if c == v.Choice {
+			exists = true
+			break
+		}
+	}
+	if !exists {
 		return ErrInvalidChoice
 	}
 
@@ -158,9 +165,18 @@ func KickParticipant(id string, name string) error {
 		return err
 	}
 
-	if _, exists := s.Participants[name]; exists {
-		delete(s.Participants, name)
+	idx := -1
+	for i, p := range s.Participants {
+		if p == name {
+			idx = i
+			break
+		}
 	}
+	if idx < 0 {
+		return ErrVoterNotExists
+	}
+
+	s.Participants = append(s.Participants[:idx], s.Participants[idx+1:]...)
 
 	err = store.Save(id, s)
 	if err != nil {
@@ -176,22 +192,20 @@ func Join(id string, name string) error {
 		return err
 	}
 
-	if _, exists := s.Participants[name]; exists {
-		return ErrVoterAlreadyJoined
+	for _, p := range s.Participants {
+		if p == name {
+			return ErrVoterAlreadyJoined
+		}
 	}
 
-	s.Participants[name] = struct{}{}
+	s.Participants = append(s.Participants, name)
 
 	err = store.Save(id, s)
 	if err != nil {
 		return err
 	}
 
-	allJoined := []string{}
-	for p := range s.Participants {
-		allJoined = append(allJoined, p)
-	}
-	event.EmitJoin(id, allJoined)
+	event.EmitJoin(id, s.Participants)
 
 	return nil
 }

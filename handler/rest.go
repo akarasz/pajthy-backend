@@ -99,23 +99,10 @@ func GetSession(w http.ResponseWriter, r *http.Request) {
 
 	log.Printf("get session %q", session)
 
-	rawRes, err := controller.GetSession(session)
+	res, err := controller.GetSession(session)
 	if err != nil {
 		handleControllerError(w, err)
 		return
-	}
-
-	res := SessionRes{
-		Choices:      []string{},
-		Participants: []string{},
-		Votes:        rawRes.Votes,
-		Open:         rawRes.Open,
-	}
-	for c := range rawRes.Choices {
-		res.Choices = append(res.Choices, c)
-	}
-	for p := range rawRes.Participants {
-		res.Participants = append(res.Participants, p)
 	}
 
 	w.Header().Set("Content-Type", "application/json")

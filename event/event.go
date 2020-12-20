@@ -2,7 +2,6 @@ package event
 
 import (
 	"errors"
-	"fmt"
 	"sync"
 
 	"github.com/akarasz/pajthy-backend/domain"
@@ -14,6 +13,21 @@ const (
 	engineer role = iota
 	scrumMaster
 )
+
+type event string
+
+const (
+	eventEnabled  = "enabled"
+	eventDisabled = "disabled"
+	eventJoin     = "join"
+	eventVote     = "vote"
+	eventDone     = "done"
+)
+
+type message struct {
+	Kind event
+	Data interface{}
+}
 
 type session struct {
 	sync.Mutex
@@ -41,7 +55,7 @@ func init() {
 	}
 }
 
-func emit(sessionID string, r role, body interface{}) {
+func emit(sessionID string, r role, body *message) {
 	s, ok := repository.sessions[sessionID]
 	if !ok {
 		return
@@ -63,24 +77,37 @@ func emit(sessionID string, r role, body interface{}) {
 }
 
 func EmitVoteEnabled(sessionID string) {
-	emit(sessionID, engineer, "enabled")
+	emit(sessionID, engineer, &message{
+		Kind: eventEnabled,
+	})
 }
 
 func EmitVoteDisabled(sessionID string) {
-	emit(sessionID, engineer, "disabled")
+	emit(sessionID, engineer, &message{
+		Kind: eventDisabled,
+	})
 }
 
 func EmitJoin(sessionID string, participants []string) {
-	emit(sessionID, scrumMaster, fmt.Sprintf("join %s", participants))
+	emit(sessionID, scrumMaster, &message{
+		Kind: eventJoin,
+		Data: participants,
+	})
 }
 
 func EmitVote(sessionID string, v *domain.Vote) {
-	emit(sessionID, scrumMaster, fmt.Sprintf("vote %s", v))
+	emit(sessionID, scrumMaster, &message{
+		Kind: eventVote,
+		Data: v,
+	})
 }
 
 func EmitDone(sessionID string, votes []*domain.Vote) {
 	EmitVoteDisabled(sessionID)
-	emit(sessionID, scrumMaster, fmt.Sprintf("done %s", votes))
+	emit(sessionID, scrumMaster, &message{
+		Kind: eventDone,
+		Data: votes,
+	})
 }
 
 func subscribe(sessionID string, r role, ws interface{}) (chan interface{}, error) {

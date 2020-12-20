@@ -6,16 +6,16 @@ type Vote struct {
 }
 
 type Session struct {
-	Choices      map[string]interface{}
-	Participants map[string]interface{}
+	Choices      []string
+	Participants []string
 	Votes        []*Vote
 	Open         bool
 }
 
 func NewSession() *Session {
 	return &Session{
-		Choices:      map[string]interface{}{},
-		Participants: map[string]interface{}{},
+		Choices:      []string{},
+		Participants: []string{},
 		Votes:        []*Vote{},
 		Open:         false,
 	}
