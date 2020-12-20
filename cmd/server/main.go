@@ -3,6 +3,8 @@ package main
 import (
 	"log"
 	"net/http"
+	"math/rand"
+	"time"
 
 	"github.com/gorilla/mux"
 
@@ -10,6 +12,8 @@ import (
 )
 
 func main() {
+	rand.Seed(time.Now().UnixNano())
+
 	r := mux.NewRouter()
 
 	r.HandleFunc("/", handler.CreateSession).
