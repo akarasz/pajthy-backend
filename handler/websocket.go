@@ -9,6 +9,7 @@ import (
 	"github.com/gorilla/websocket"
 
 	"github.com/akarasz/pajthy-backend/event"
+	"github.com/akarasz/pajthy-backend/store"
 )
 
 const (
@@ -64,6 +65,10 @@ func WS(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "wrong session", http.StatusBadRequest)
 		return
 	}
+	if _, err := store.Load(session); err != nil {
+		http.Error(w, "session not found", http.StatusNotFound)
+		return
+	}
 
 	ws, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
@@ -89,6 +94,10 @@ func ControlWS(w http.ResponseWriter, r *http.Request) {
 	session, ok := mux.Vars(r)["session"]
 	if !ok {
 		http.Error(w, "wrong session", http.StatusBadRequest)
+		return
+	}
+	if _, err := store.Load(session); err != nil {
+		http.Error(w, "session not found", http.StatusNotFound)
 		return
 	}
 

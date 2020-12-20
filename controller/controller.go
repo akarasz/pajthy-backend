@@ -87,13 +87,19 @@ func Vote(id string, v *domain.Vote) error {
 		s.Votes = append(s.Votes, v)
 	}
 
+	if len(s.Votes) == len(s.Participants) {
+		s.Open = false
+	}
+
 	err = store.Save(id, s)
 	if err != nil {
 		return err
 	}
 
 	if len(s.Votes) == len(s.Participants) {
-		event.EmitVoteDisabled(id)
+		event.EmitDone(id, s.Votes)
+	} else {
+		event.EmitVote(id, v)
 	}
 
 	return nil
@@ -180,6 +186,12 @@ func Join(id string, name string) error {
 	if err != nil {
 		return err
 	}
+
+	allJoined := []string{}
+	for p := range s.Participants {
+		allJoined = append(allJoined, p)
+	}
+	event.EmitJoin(id, allJoined)
 
 	return nil
 }

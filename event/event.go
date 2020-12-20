@@ -2,7 +2,10 @@ package event
 
 import (
 	"errors"
+	"fmt"
 	"sync"
+
+	"github.com/akarasz/pajthy-backend/domain"
 )
 
 type role int
@@ -65,6 +68,19 @@ func EmitVoteEnabled(sessionID string) {
 
 func EmitVoteDisabled(sessionID string) {
 	emit(sessionID, engineer, "disabled")
+}
+
+func EmitJoin(sessionID string, participants []string) {
+	emit(sessionID, scrumMaster, fmt.Sprintf("join %s", participants))
+}
+
+func EmitVote(sessionID string, v *domain.Vote) {
+	emit(sessionID, scrumMaster, fmt.Sprintf("vote %s", v))
+}
+
+func EmitDone(sessionID string, votes []*domain.Vote) {
+	EmitVoteDisabled(sessionID)
+	emit(sessionID, scrumMaster, fmt.Sprintf("done %s", votes))
 }
 
 func subscribe(sessionID string, r role, ws interface{}) (chan interface{}, error) {
