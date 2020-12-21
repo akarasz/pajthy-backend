@@ -112,13 +112,6 @@ func GetSession(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-type SessionRes struct {
-	Choices      []string
-	Participants []string
-	Votes        []*domain.Vote
-	Open         bool
-}
-
 func StartVote(w http.ResponseWriter, r *http.Request) {
 	session, ok := mux.Vars(r)["session"]
 	if !ok {
@@ -129,6 +122,24 @@ func StartVote(w http.ResponseWriter, r *http.Request) {
 	log.Printf("start vote %q", session)
 
 	err := controller.StartVote(session)
+	if err != nil {
+		handleControllerError(w, err)
+		return
+	}
+
+	w.WriteHeader(http.StatusAccepted)
+}
+
+func StopVote(w http.ResponseWriter, r *http.Request) {
+	session, ok := mux.Vars(r)["session"]
+	if !ok {
+		http.Error(w, "wrong session", http.StatusBadRequest)
+		return
+	}
+
+	log.Printf("stop vote %q", session)
+
+	err := controller.StopVote(session)
 	if err != nil {
 		handleControllerError(w, err)
 		return

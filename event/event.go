@@ -79,16 +79,20 @@ func emit(sessionID string, r role, body *message) {
 
 func EmitVoteEnabled(sessionID string) {
 	log.Printf("emit enabled %q", sessionID)
-	emit(sessionID, engineer, &message{
+	m := &message{
 		Kind: eventEnabled,
-	})
+	}
+	emit(sessionID, engineer, m)
+	emit(sessionID, scrumMaster, m)
 }
 
 func EmitVoteDisabled(sessionID string) {
 	log.Printf("emit disabled %q", sessionID)
-	emit(sessionID, engineer, &message{
+	m := &message{
 		Kind: eventDisabled,
-	})
+	}
+	emit(sessionID, engineer, m)
+	emit(sessionID, scrumMaster, m)
 }
 
 func EmitParticipantsChange(sessionID string, participants []string) {

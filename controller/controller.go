@@ -131,6 +131,24 @@ func StartVote(id string) error {
 	return nil
 }
 
+func StopVote(id string) error {
+	s, err := store.Load(id)
+	if err != nil {
+		return err
+	}
+
+	s.Open = false
+
+	err = store.Save(id, s)
+	if err != nil {
+		return err
+	}
+
+	event.EmitVoteDisabled(id)
+
+	return nil
+}
+
 func ResetVote(id string) error {
 	s, err := store.Load(id)
 	if err != nil {

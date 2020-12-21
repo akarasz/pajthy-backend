@@ -26,6 +26,8 @@ func main() {
 		Methods("GET", "OPTIONS")
 	r.HandleFunc("/{session}/control/start", handler.StartVote).
 		Methods("PATCH", "OPTIONS")
+	r.HandleFunc("/{session}/control/stop", handler.StopVote).
+		Methods("PATCH", "OPTIONS")
 	r.HandleFunc("/{session}/control/reset", handler.ResetVote).
 		Methods("PATCH", "OPTIONS")
 	r.HandleFunc("/{session}/control/kick", handler.KickParticipant).
