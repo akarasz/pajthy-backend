@@ -208,6 +208,8 @@ func Join(w http.ResponseWriter, r *http.Request) {
 func handleControllerError(w http.ResponseWriter, err error) {
 	if errors.Is(err, store.ErrNotExists) {
 		http.Error(w, fmt.Sprintf("%v", err), http.StatusNotFound)
+	} else if errors.Is(err, controller.ErrVoterAlreadyJoined) {
+		http.Error(w, fmt.Sprintf("%v", err), http.StatusConflict)
 	} else {
 		http.Error(w, fmt.Sprintf("%v", err), http.StatusInternalServerError)
 	}
