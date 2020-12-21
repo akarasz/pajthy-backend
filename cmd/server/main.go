@@ -2,8 +2,8 @@ package main
 
 import (
 	"log"
-	"net/http"
 	"math/rand"
+	"net/http"
 	"time"
 
 	"github.com/gorilla/mux"

@@ -18,11 +18,11 @@ const (
 type event string
 
 const (
-	eventEnabled  = "enabled"
-	eventDisabled = "disabled"
-	eventJoin     = "join"
-	eventVote     = "vote"
-	eventDone     = "done"
+	eventEnabled            = "enabled"
+	eventDisabled           = "disabled"
+	eventParticipantsChange = "participants-change"
+	eventVote               = "vote"
+	eventDone               = "done"
 )
 
 type message struct {
@@ -91,10 +91,10 @@ func EmitVoteDisabled(sessionID string) {
 	})
 }
 
-func EmitJoin(sessionID string, participants []string) {
-	log.Printf("emit join %q %q", sessionID, participants)
+func EmitParticipantsChange(sessionID string, participants []string) {
+	log.Printf("emit participants change %q %q", sessionID, participants)
 	emit(sessionID, scrumMaster, &message{
-		Kind: eventJoin,
+		Kind: eventParticipantsChange,
 		Data: participants,
 	})
 }

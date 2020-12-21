@@ -174,6 +174,8 @@ func KickParticipant(id string, name string) error {
 		return err
 	}
 
+	event.EmitParticipantsChange(id, s.Participants)
+
 	return nil
 }
 
@@ -196,7 +198,7 @@ func Join(id string, name string) error {
 		return err
 	}
 
-	event.EmitJoin(id, s.Participants)
+	event.EmitParticipantsChange(id, s.Participants)
 
 	return nil
 }
