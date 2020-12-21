@@ -15,27 +15,27 @@ func main() {
 	rand.Seed(time.Now().UnixNano())
 
 	r := mux.NewRouter()
-
+	r.Use(handler.CorsMiddleware)
 	r.HandleFunc("/", handler.CreateSession).
-		Methods("POST")
+		Methods("POST", "OPTIONS")
 	r.HandleFunc("/{session}", handler.Choices).
-		Methods("GET")
+		Methods("GET", "OPTIONS")
 	r.HandleFunc("/{session}", handler.Vote).
-		Methods("PUT")
+		Methods("PUT", "OPTIONS")
 	r.HandleFunc("/{session}/control", handler.GetSession).
-		Methods("GET")
+		Methods("GET", "OPTIONS")
 	r.HandleFunc("/{session}/control/start", handler.StartVote).
-		Methods("PATCH")
+		Methods("PATCH", "OPTIONS")
 	r.HandleFunc("/{session}/control/reset", handler.ResetVote).
-		Methods("PATCH")
+		Methods("PATCH", "OPTIONS")
 	r.HandleFunc("/{session}/control/kick", handler.KickParticipant).
-		Methods("PATCH")
+		Methods("PATCH", "OPTIONS")
 	r.HandleFunc("/{session}/control/ws", handler.ControlWS).
-		Methods("GET")
+		Methods("GET", "OPTIONS")
 	r.HandleFunc("/{session}/join", handler.Join).
-		Methods("PUT")
+		Methods("PUT", "OPTIONS")
 	r.HandleFunc("/{session}/ws", handler.WS).
-		Methods("GET")
+		Methods("GET", "OPTIONS")
 
 	log.Fatal(http.ListenAndServe(":8000", r))
 }
