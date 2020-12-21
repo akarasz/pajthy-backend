@@ -8,7 +8,7 @@ type Vote struct {
 type Session struct {
 	Choices      []string
 	Participants []string
-	Votes        []*Vote
+	Votes        map[string]string
 	Open         bool
 }
 
@@ -16,7 +16,7 @@ func NewSession() *Session {
 	return &Session{
 		Choices:      []string{},
 		Participants: []string{},
-		Votes:        []*Vote{},
+		Votes:        map[string]string{},
 		Open:         false,
 	}
 }

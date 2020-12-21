@@ -83,16 +83,7 @@ func Vote(id string, v *domain.Vote) error {
 		return ErrInvalidChoice
 	}
 
-	alreadyVoted := false
-	for _, existing := range s.Votes {
-		if v.Participant == existing.Participant {
-			alreadyVoted = true
-			existing.Choice = v.Choice
-		}
-	}
-	if !alreadyVoted {
-		s.Votes = append(s.Votes, v)
-	}
+	s.Votes[v.Participant] = v.Choice
 
 	if len(s.Votes) == len(s.Participants) {
 		s.Open = false
@@ -127,8 +118,8 @@ func StartVote(id string) error {
 		return err
 	}
 
-	s.Votes = []*domain.Vote{}
 	s.Open = true
+	s.Votes = map[string]string{}
 
 	err = store.Save(id, s)
 	if err != nil {
@@ -147,7 +138,7 @@ func ResetVote(id string) error {
 	}
 
 	s.Open = false
-	s.Votes = []*domain.Vote{}
+	s.Votes = map[string]string{}
 
 	err = store.Save(id, s)
 	if err != nil {

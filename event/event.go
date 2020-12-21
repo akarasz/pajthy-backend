@@ -2,6 +2,7 @@ package event
 
 import (
 	"errors"
+	"log"
 	"sync"
 
 	"github.com/akarasz/pajthy-backend/domain"
@@ -77,18 +78,21 @@ func emit(sessionID string, r role, body *message) {
 }
 
 func EmitVoteEnabled(sessionID string) {
+	log.Printf("emit enabled %q", sessionID)
 	emit(sessionID, engineer, &message{
 		Kind: eventEnabled,
 	})
 }
 
 func EmitVoteDisabled(sessionID string) {
+	log.Printf("emit disabled %q", sessionID)
 	emit(sessionID, engineer, &message{
 		Kind: eventDisabled,
 	})
 }
 
 func EmitJoin(sessionID string, participants []string) {
+	log.Printf("emit join %q %q", sessionID, participants)
 	emit(sessionID, scrumMaster, &message{
 		Kind: eventJoin,
 		Data: participants,
@@ -96,13 +100,15 @@ func EmitJoin(sessionID string, participants []string) {
 }
 
 func EmitVote(sessionID string, v *domain.Vote) {
+	log.Printf("emit vote %q %q", sessionID, v)
 	emit(sessionID, scrumMaster, &message{
 		Kind: eventVote,
 		Data: v,
 	})
 }
 
-func EmitDone(sessionID string, votes []*domain.Vote) {
+func EmitDone(sessionID string, votes map[string]string) {
+	log.Printf("emit done %q %q", sessionID, votes)
 	EmitVoteDisabled(sessionID)
 	emit(sessionID, scrumMaster, &message{
 		Kind: eventDone,
@@ -138,14 +144,17 @@ func subscribe(sessionID string, r role, ws interface{}) (chan interface{}, erro
 }
 
 func SubscribeEngineer(sessionID string, ws interface{}) (chan interface{}, error) {
+	log.Printf("subscribe engineer %q", sessionID)
 	return subscribe(sessionID, engineer, ws)
 }
 
 func SubscribeScrumMaster(sessionID string, ws interface{}) (chan interface{}, error) {
+	log.Printf("subscribe scrum master %q", sessionID)
 	return subscribe(sessionID, scrumMaster, ws)
 }
 
 func Unsubscribe(sessionID string, ws interface{}) error {
+	log.Printf("unsubscribe %q", sessionID)
 	s, ok := repository.sessions[sessionID]
 	if !ok {
 		return errors.New("no session found")
