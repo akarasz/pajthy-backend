@@ -87,6 +87,7 @@ func Vote(id string, v *domain.Vote) error {
 
 	if len(s.Votes) == len(s.Participants) {
 		s.Open = false
+		event.EmitVoteDisabled(id)
 	}
 
 	err = store.Save(id, s)
