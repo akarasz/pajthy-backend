@@ -94,11 +94,7 @@ func Vote(id string, v *domain.Vote) error {
 		return err
 	}
 
-	if len(s.Votes) == len(s.Participants) {
-		event.EmitDone(id, s.Votes)
-	} else {
-		event.EmitVote(id, v)
-	}
+	event.EmitVote(id, s.Votes)
 
 	return nil
 }

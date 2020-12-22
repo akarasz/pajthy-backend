@@ -4,8 +4,6 @@ import (
 	"errors"
 	"log"
 	"sync"
-
-	"github.com/akarasz/pajthy-backend/domain"
 )
 
 type role int
@@ -77,10 +75,23 @@ func emit(sessionID string, r role, body *message) {
 	}
 }
 
+type OpenChangedData struct {
+	Open bool
+}
+
+type ParticipantsChangedData struct {
+	Participants []string
+}
+
+type VotesChangedData struct {
+	Votes map[string]string
+}
+
 func EmitVoteEnabled(sessionID string) {
 	log.Printf("emit enabled %q", sessionID)
 	m := &message{
 		Kind: eventEnabled,
+		Data: &OpenChangedData{true},
 	}
 	emit(sessionID, engineer, m)
 	emit(sessionID, scrumMaster, m)
@@ -90,6 +101,7 @@ func EmitVoteDisabled(sessionID string) {
 	log.Printf("emit disabled %q", sessionID)
 	m := &message{
 		Kind: eventDisabled,
+		Data: &OpenChangedData{false},
 	}
 	emit(sessionID, engineer, m)
 	emit(sessionID, scrumMaster, m)
@@ -99,24 +111,15 @@ func EmitParticipantsChange(sessionID string, participants []string) {
 	log.Printf("emit participants change %q %q", sessionID, participants)
 	emit(sessionID, scrumMaster, &message{
 		Kind: eventParticipantsChange,
-		Data: participants,
+		Data: &ParticipantsChangedData{participants},
 	})
 }
 
-func EmitVote(sessionID string, v *domain.Vote) {
-	log.Printf("emit vote %q %q", sessionID, v)
+func EmitVote(sessionID string, votes map[string]string) {
+	log.Printf("emit vote %q %q", sessionID, votes)
 	emit(sessionID, scrumMaster, &message{
 		Kind: eventVote,
-		Data: v,
-	})
-}
-
-func EmitDone(sessionID string, votes map[string]string) {
-	log.Printf("emit done %q %q", sessionID, votes)
-	EmitVoteDisabled(sessionID)
-	emit(sessionID, scrumMaster, &message{
-		Kind: eventDone,
-		Data: votes,
+		Data: &VotesChangedData{votes},
 	})
 }
 
