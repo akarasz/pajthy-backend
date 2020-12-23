@@ -42,13 +42,21 @@ func generateID() string {
 	return string(b)
 }
 
-func Choices(id string) ([]string, error) {
+type ChoicesResponse struct {
+	Choices []string
+	Open    bool
+}
+
+func Choices(id string) (*ChoicesResponse, error) {
 	s, err := store.Load(id)
 	if err != nil {
-		return []string{}, err
+		return nil, err
 	}
 
-	return s.Choices, nil
+	return &ChoicesResponse{
+		Choices: s.Choices,
+		Open:    s.Open,
+	}, nil
 }
 
 func Vote(id string, v *domain.Vote) error {
