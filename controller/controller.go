@@ -160,7 +160,7 @@ func ResetVote(id string) error {
 		return err
 	}
 
-	event.EmitVoteDisabled(id)
+	event.EmitReset(id)
 	event.EmitVote(id, s.Votes)
 
 	return nil

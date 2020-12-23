@@ -18,6 +18,7 @@ type event string
 const (
 	eventEnabled            = "enabled"
 	eventDisabled           = "disabled"
+	eventReset              = "reset"
 	eventParticipantsChange = "participants-change"
 	eventVote               = "vote"
 	eventDone               = "done"
@@ -101,6 +102,16 @@ func EmitVoteDisabled(sessionID string) {
 	log.Printf("emit disabled %q", sessionID)
 	m := &message{
 		Kind: eventDisabled,
+		Data: &OpenChangedData{false},
+	}
+	emit(sessionID, engineer, m)
+	emit(sessionID, scrumMaster, m)
+}
+
+func EmitReset(sessionID string) {
+	log.Printf("emit reset %q", sessionID)
+	m := &message{
+		Kind: eventReset,
 		Data: &OpenChangedData{false},
 	}
 	emit(sessionID, engineer, m)
