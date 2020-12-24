@@ -76,15 +76,15 @@ func emit(sessionID string, r role, body *message) {
 	}
 }
 
-type OpenChangedData struct {
+type openChangedData struct {
 	Open bool
 }
 
-type ParticipantsChangedData struct {
+type participantsChangedData struct {
 	Participants []string
 }
 
-type VotesChangedData struct {
+type votesChangedData struct {
 	Votes map[string]string
 }
 
@@ -92,7 +92,7 @@ func EmitVoteEnabled(sessionID string) {
 	log.Printf("emit enabled %q", sessionID)
 	m := &message{
 		Kind: eventEnabled,
-		Data: &OpenChangedData{true},
+		Data: &openChangedData{true},
 	}
 	emit(sessionID, engineer, m)
 	emit(sessionID, scrumMaster, m)
@@ -102,7 +102,7 @@ func EmitVoteDisabled(sessionID string) {
 	log.Printf("emit disabled %q", sessionID)
 	m := &message{
 		Kind: eventDisabled,
-		Data: &OpenChangedData{false},
+		Data: &openChangedData{false},
 	}
 	emit(sessionID, engineer, m)
 	emit(sessionID, scrumMaster, m)
@@ -112,7 +112,7 @@ func EmitReset(sessionID string) {
 	log.Printf("emit reset %q", sessionID)
 	m := &message{
 		Kind: eventReset,
-		Data: &OpenChangedData{false},
+		Data: &openChangedData{false},
 	}
 	emit(sessionID, engineer, m)
 	emit(sessionID, scrumMaster, m)
@@ -122,7 +122,7 @@ func EmitParticipantsChange(sessionID string, participants []string) {
 	log.Printf("emit participants change %q %q", sessionID, participants)
 	emit(sessionID, scrumMaster, &message{
 		Kind: eventParticipantsChange,
-		Data: &ParticipantsChangedData{participants},
+		Data: &participantsChangedData{participants},
 	})
 }
 
@@ -130,7 +130,7 @@ func EmitVote(sessionID string, votes map[string]string) {
 	log.Printf("emit vote %q %q", sessionID, votes)
 	emit(sessionID, scrumMaster, &message{
 		Kind: eventVote,
-		Data: &VotesChangedData{votes},
+		Data: &votesChangedData{votes},
 	})
 }
 
