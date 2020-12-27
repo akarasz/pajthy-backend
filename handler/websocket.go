@@ -21,7 +21,7 @@ var upgrader = websocket.Upgrader{
 	CheckOrigin: func(r *http.Request) bool { return true },
 }
 
-func writer(ws *websocket.Conn, sessionID string, msgs <-chan interface{}) {
+func writer(ws *websocket.Conn, sessionID string, msgs <-chan *event.Payload) {
 	pingTicker := time.NewTicker(pingPeriod)
 	defer func() {
 		event.Unsubscribe(sessionID, ws)

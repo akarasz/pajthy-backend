@@ -13,32 +13,32 @@ const (
 	scrumMaster
 )
 
-type event string
+type Type string
 
 const (
-	eventEnabled            = "enabled"
-	eventDisabled           = "disabled"
-	eventReset              = "reset"
-	eventParticipantsChange = "participants-change"
-	eventVote               = "vote"
-	eventDone               = "done"
+	Enabled            = "enabled"
+	Disabled           = "disabled"
+	Reset              = "reset"
+	ParticipantsChange = "participants-change"
+	Vote               = "vote"
+	Done               = "done"
 )
 
-type message struct {
-	Kind event
+type Payload struct {
+	Kind Type
 	Data interface{}
 }
 
 type session struct {
 	sync.Mutex
-	engineers    map[interface{}]chan interface{}
-	scrumMasters map[interface{}]chan interface{}
+	engineers    map[interface{}]chan *Payload
+	scrumMasters map[interface{}]chan *Payload
 }
 
 func newSession() *session {
 	return &session{
-		engineers:    map[interface{}]chan interface{}{},
-		scrumMasters: map[interface{}]chan interface{}{},
+		engineers:    map[interface{}]chan *Payload{},
+		scrumMasters: map[interface{}]chan *Payload{},
 	}
 }
 
@@ -55,7 +55,7 @@ func init() {
 	}
 }
 
-func emit(sessionID string, r role, body *message) {
+func emit(sessionID string, r role, body *Payload) {
 	s, ok := repository.sessions[sessionID]
 	if !ok {
 		return
@@ -90,8 +90,8 @@ type votesChangedData struct {
 
 func EmitVoteEnabled(sessionID string) {
 	log.Printf("emit enabled %q", sessionID)
-	m := &message{
-		Kind: eventEnabled,
+	m := &Payload{
+		Kind: Enabled,
 		Data: &openChangedData{true},
 	}
 	emit(sessionID, engineer, m)
@@ -100,8 +100,8 @@ func EmitVoteEnabled(sessionID string) {
 
 func EmitVoteDisabled(sessionID string) {
 	log.Printf("emit disabled %q", sessionID)
-	m := &message{
-		Kind: eventDisabled,
+	m := &Payload{
+		Kind: Disabled,
 		Data: &openChangedData{false},
 	}
 	emit(sessionID, engineer, m)
@@ -110,8 +110,8 @@ func EmitVoteDisabled(sessionID string) {
 
 func EmitReset(sessionID string) {
 	log.Printf("emit reset %q", sessionID)
-	m := &message{
-		Kind: eventReset,
+	m := &Payload{
+		Kind: Reset,
 		Data: &openChangedData{false},
 	}
 	emit(sessionID, engineer, m)
@@ -120,22 +120,22 @@ func EmitReset(sessionID string) {
 
 func EmitParticipantsChange(sessionID string, participants []string) {
 	log.Printf("emit participants change %q %q", sessionID, participants)
-	emit(sessionID, scrumMaster, &message{
-		Kind: eventParticipantsChange,
+	emit(sessionID, scrumMaster, &Payload{
+		Kind: ParticipantsChange,
 		Data: &participantsChangedData{participants},
 	})
 }
 
 func EmitVote(sessionID string, votes map[string]string) {
 	log.Printf("emit vote %q %q", sessionID, votes)
-	emit(sessionID, scrumMaster, &message{
-		Kind: eventVote,
+	emit(sessionID, scrumMaster, &Payload{
+		Kind: Vote,
 		Data: &votesChangedData{votes},
 	})
 }
 
-func subscribe(sessionID string, r role, ws interface{}) (chan interface{}, error) {
-	c := make(chan interface{})
+func subscribe(sessionID string, r role, ws interface{}) (chan *Payload, error) {
+	c := make(chan *Payload)
 
 	var s *session
 
@@ -161,12 +161,12 @@ func subscribe(sessionID string, r role, ws interface{}) (chan interface{}, erro
 	return c, nil
 }
 
-func SubscribeEngineer(sessionID string, ws interface{}) (chan interface{}, error) {
+func SubscribeEngineer(sessionID string, ws interface{}) (chan *Payload, error) {
 	log.Printf("subscribe engineer %q", sessionID)
 	return subscribe(sessionID, engineer, ws)
 }
 
-func SubscribeScrumMaster(sessionID string, ws interface{}) (chan interface{}, error) {
+func SubscribeScrumMaster(sessionID string, ws interface{}) (chan *Payload, error) {
 	log.Printf("subscribe scrum master %q", sessionID)
 	return subscribe(sessionID, scrumMaster, ws)
 }
