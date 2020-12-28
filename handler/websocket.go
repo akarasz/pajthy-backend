@@ -59,12 +59,8 @@ func (h *Handler) reader(ws *websocket.Conn, sessionID string) {
 	}
 }
 
-func (h *Handler) WS(w http.ResponseWriter, r *http.Request) {
-	session, ok := mux.Vars(r)["session"]
-	if !ok {
-		http.Error(w, "wrong session", http.StatusBadRequest)
-		return
-	}
+func (h *Handler) ws(w http.ResponseWriter, r *http.Request) {
+	session := mux.Vars(r)["session"]
 
 	ws, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
@@ -91,12 +87,8 @@ func (h *Handler) WS(w http.ResponseWriter, r *http.Request) {
 	h.reader(ws, session)
 }
 
-func (h *Handler) ControlWS(w http.ResponseWriter, r *http.Request) {
-	session, ok := mux.Vars(r)["session"]
-	if !ok {
-		http.Error(w, "wrong session", http.StatusBadRequest)
-		return
-	}
+func (h *Handler) controlWS(w http.ResponseWriter, r *http.Request) {
+	session := mux.Vars(r)["session"]
 
 	ws, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
@@ -121,4 +113,46 @@ func (h *Handler) ControlWS(w http.ResponseWriter, r *http.Request) {
 
 	go h.writer(ws, session, c)
 	h.reader(ws, session)
+}
+
+type openChangedData struct {
+	Open bool
+}
+
+type votesChangedData struct {
+	Votes map[string]string
+}
+
+type participantsChangedData struct {
+	Participants []string
+}
+
+func (h *Handler) emitVoteEnabled(id string) {
+	m := &openChangedData{Open: true}
+	h.event.Emit(id, event.Voter, event.Enabled, m)
+	h.event.Emit(id, event.Controller, event.Enabled, m)
+}
+
+func (h *Handler) emitVoteDisabled(id string) {
+	m := &openChangedData{Open: false}
+	h.event.Emit(id, event.Voter, event.Disabled, m)
+	h.event.Emit(id, event.Controller, event.Disabled, m)
+}
+
+func (h *Handler) emitReset(id string) {
+	m := &openChangedData{Open: false}
+	h.event.Emit(id, event.Voter, event.Reset, m)
+	h.event.Emit(id, event.Controller, event.Reset, m)
+}
+
+func (h *Handler) emitVote(id string, votes map[string]string) {
+	h.event.Emit(id, event.Controller, event.Vote, &votesChangedData{Votes: votes})
+}
+
+func (c *Handler) emitParticipantsChange(id string, participants []string) {
+	c.event.Emit(
+		id,
+		event.Controller,
+		event.ParticipantsChange,
+		&participantsChangedData{Participants: participants})
 }
