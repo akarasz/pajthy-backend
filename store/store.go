@@ -10,20 +10,29 @@ var (
 	ErrNotExists = errors.New("session not exists")
 )
 
-var repository map[string]*domain.Session
-
-func init() {
-	repository = map[string]*domain.Session{}
+type Store interface {
+	Save(id string, s *domain.Session) error
+	Load(id string) (*domain.Session, error)
 }
 
-func Save(id string, s *domain.Session) error {
-	repository[id] = s
+func NewInternal() Store {
+	return &Internal{
+		repo: map[string]*domain.Session{},
+	}
+}
+
+type Internal struct {
+	repo map[string]*domain.Session
+}
+
+func (im *Internal) Save(id string, s *domain.Session) error {
+	im.repo[id] = s
 
 	return nil
 }
 
-func Load(id string) (*domain.Session, error) {
-	s, ok := repository[id]
+func (im *Internal) Load(id string) (*domain.Session, error) {
+	s, ok := im.repo[id]
 	if !ok {
 		return s, ErrNotExists
 	}

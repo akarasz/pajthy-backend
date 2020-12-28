@@ -15,7 +15,7 @@ import (
 	"github.com/akarasz/pajthy-backend/store"
 )
 
-func CreateSession(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) CreateSession(w http.ResponseWriter, r *http.Request) {
 	log.Print("create session")
 
 	var body []string
@@ -29,7 +29,7 @@ func CreateSession(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	id, err := controller.CreateSession(body)
+	id, err := h.controller.CreateSession(body)
 	if err != nil {
 		handleControllerError(w, err)
 		return
@@ -39,7 +39,7 @@ func CreateSession(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusCreated)
 }
 
-func Choices(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) Choices(w http.ResponseWriter, r *http.Request) {
 	session, ok := mux.Vars(r)["session"]
 	if !ok {
 		http.Error(w, "wrong session", http.StatusBadRequest)
@@ -48,7 +48,7 @@ func Choices(w http.ResponseWriter, r *http.Request) {
 
 	log.Printf("choices %q", session)
 
-	res, err := controller.Choices(session)
+	res, err := h.controller.Choices(session)
 	if err != nil {
 		handleControllerError(w, err)
 		return
@@ -61,7 +61,7 @@ func Choices(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func Vote(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) Vote(w http.ResponseWriter, r *http.Request) {
 	session, ok := mux.Vars(r)["session"]
 	if !ok {
 		http.Error(w, "wrong session", http.StatusBadRequest)
@@ -81,7 +81,7 @@ func Vote(w http.ResponseWriter, r *http.Request) {
 
 	log.Printf("vote %q %q", session, body)
 
-	err = controller.Vote(session, &body)
+	err = h.controller.Vote(session, &body)
 	if err != nil {
 		handleControllerError(w, err)
 		return
@@ -90,7 +90,7 @@ func Vote(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusAccepted)
 }
 
-func GetSession(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) GetSession(w http.ResponseWriter, r *http.Request) {
 	session, ok := mux.Vars(r)["session"]
 	if !ok {
 		http.Error(w, "wrong session", http.StatusBadRequest)
@@ -99,7 +99,7 @@ func GetSession(w http.ResponseWriter, r *http.Request) {
 
 	log.Printf("get session %q", session)
 
-	res, err := controller.GetSession(session)
+	res, err := h.controller.GetSession(session)
 	if err != nil {
 		handleControllerError(w, err)
 		return
@@ -112,7 +112,7 @@ func GetSession(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func StartVote(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) StartVote(w http.ResponseWriter, r *http.Request) {
 	session, ok := mux.Vars(r)["session"]
 	if !ok {
 		http.Error(w, "wrong session", http.StatusBadRequest)
@@ -121,7 +121,7 @@ func StartVote(w http.ResponseWriter, r *http.Request) {
 
 	log.Printf("start vote %q", session)
 
-	err := controller.StartVote(session)
+	err := h.controller.StartVote(session)
 	if err != nil {
 		handleControllerError(w, err)
 		return
@@ -130,7 +130,7 @@ func StartVote(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusAccepted)
 }
 
-func StopVote(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) StopVote(w http.ResponseWriter, r *http.Request) {
 	session, ok := mux.Vars(r)["session"]
 	if !ok {
 		http.Error(w, "wrong session", http.StatusBadRequest)
@@ -139,7 +139,7 @@ func StopVote(w http.ResponseWriter, r *http.Request) {
 
 	log.Printf("stop vote %q", session)
 
-	err := controller.StopVote(session)
+	err := h.controller.StopVote(session)
 	if err != nil {
 		handleControllerError(w, err)
 		return
@@ -148,7 +148,7 @@ func StopVote(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusAccepted)
 }
 
-func ResetVote(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) ResetVote(w http.ResponseWriter, r *http.Request) {
 	session, ok := mux.Vars(r)["session"]
 	if !ok {
 		http.Error(w, "wrong session", http.StatusBadRequest)
@@ -157,7 +157,7 @@ func ResetVote(w http.ResponseWriter, r *http.Request) {
 
 	log.Printf("reset vote %q", session)
 
-	err := controller.ResetVote(session)
+	err := h.controller.ResetVote(session)
 	if err != nil {
 		handleControllerError(w, err)
 		return
@@ -166,7 +166,7 @@ func ResetVote(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusAccepted)
 }
 
-func KickParticipant(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) KickParticipant(w http.ResponseWriter, r *http.Request) {
 	session, ok := mux.Vars(r)["session"]
 	if !ok {
 		http.Error(w, "wrong session", http.StatusBadRequest)
@@ -182,7 +182,7 @@ func KickParticipant(w http.ResponseWriter, r *http.Request) {
 
 	log.Printf("kick participant %q %q", session, body)
 
-	err = controller.KickParticipant(session, body)
+	err = h.controller.KickParticipant(session, body)
 	if err != nil {
 		handleControllerError(w, err)
 		return
@@ -191,7 +191,7 @@ func KickParticipant(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-func Join(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) Join(w http.ResponseWriter, r *http.Request) {
 	session, ok := mux.Vars(r)["session"]
 	if !ok {
 		http.Error(w, "wrong session", http.StatusBadRequest)
@@ -207,7 +207,7 @@ func Join(w http.ResponseWriter, r *http.Request) {
 
 	log.Printf("join %q %q", session, body)
 
-	err = controller.Join(session, body)
+	err = h.controller.Join(session, body)
 	if err != nil {
 		handleControllerError(w, err)
 		return

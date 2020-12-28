@@ -9,7 +9,6 @@ import (
 	"github.com/gorilla/websocket"
 
 	"github.com/akarasz/pajthy-backend/event"
-	"github.com/akarasz/pajthy-backend/store"
 )
 
 const (
@@ -21,10 +20,10 @@ var upgrader = websocket.Upgrader{
 	CheckOrigin: func(r *http.Request) bool { return true },
 }
 
-func writer(ws *websocket.Conn, sessionID string, msgs <-chan *event.Payload) {
+func (h *Handler) writer(ws *websocket.Conn, sessionID string, msgs <-chan *event.Payload) {
 	pingTicker := time.NewTicker(pingPeriod)
 	defer func() {
-		event.Unsubscribe(sessionID, ws)
+		h.event.Unsubscribe(sessionID, ws)
 		pingTicker.Stop()
 		ws.Close()
 	}()
@@ -43,9 +42,9 @@ func writer(ws *websocket.Conn, sessionID string, msgs <-chan *event.Payload) {
 	}
 }
 
-func reader(ws *websocket.Conn, sessionID string) {
+func (h *Handler) reader(ws *websocket.Conn, sessionID string) {
 	defer func() {
-		event.Unsubscribe(sessionID, ws)
+		h.event.Unsubscribe(sessionID, ws)
 		ws.Close()
 	}()
 	ws.SetReadLimit(512)
@@ -59,14 +58,10 @@ func reader(ws *websocket.Conn, sessionID string) {
 	}
 }
 
-func WS(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) WS(w http.ResponseWriter, r *http.Request) {
 	session, ok := mux.Vars(r)["session"]
 	if !ok {
 		http.Error(w, "wrong session", http.StatusBadRequest)
-		return
-	}
-	if _, err := store.Load(session); err != nil {
-		http.Error(w, "session not found", http.StatusNotFound)
 		return
 	}
 
@@ -78,7 +73,12 @@ func WS(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	c, err := event.Subscribe(session, event.Voter, ws)
+	if _, err := h.store.Load(session); err != nil {
+		http.Error(w, "session not found", http.StatusNotFound)
+		return
+	}
+
+	c, err := h.event.Subscribe(session, event.Voter, ws)
 	if err != nil {
 		http.Error(w, "unable to subscribe", http.StatusInternalServerError)
 		return
@@ -86,18 +86,14 @@ func WS(w http.ResponseWriter, r *http.Request) {
 
 	log.Printf("ws %q", session)
 
-	go writer(ws, session, c)
-	reader(ws, session)
+	go h.writer(ws, session, c)
+	h.reader(ws, session)
 }
 
-func ControlWS(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) ControlWS(w http.ResponseWriter, r *http.Request) {
 	session, ok := mux.Vars(r)["session"]
 	if !ok {
 		http.Error(w, "wrong session", http.StatusBadRequest)
-		return
-	}
-	if _, err := store.Load(session); err != nil {
-		http.Error(w, "session not found", http.StatusNotFound)
 		return
 	}
 
@@ -109,7 +105,12 @@ func ControlWS(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	c, err := event.Subscribe(session, event.Controller, ws)
+	if _, err := h.store.Load(session); err != nil {
+		http.Error(w, "session not found", http.StatusNotFound)
+		return
+	}
+
+	c, err := h.event.Subscribe(session, event.Controller, ws)
 	if err != nil {
 		http.Error(w, "unable to subscribe", http.StatusInternalServerError)
 		return
@@ -117,6 +118,6 @@ func ControlWS(w http.ResponseWriter, r *http.Request) {
 
 	log.Printf("control ws %q", session)
 
-	go writer(ws, session, c)
-	reader(ws, session)
+	go h.writer(ws, session, c)
+	h.reader(ws, session)
 }

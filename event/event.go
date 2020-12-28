@@ -29,6 +29,23 @@ type Payload struct {
 	Data interface{}
 }
 
+type Event interface {
+	Emit(sessionID string, r Role, t Type, body interface{})
+	Subscribe(sessionID string, r Role, ws interface{}) (chan *Payload, error)
+	Unsubscribe(sessionID string, ws interface{}) error
+}
+
+type Internal struct {
+	sync.Mutex
+	sessions map[string]*session
+}
+
+func NewInternal() Event {
+	return &Internal{
+		sessions: map[string]*session{},
+	}
+}
+
 type session struct {
 	sync.Mutex
 	voters      map[interface{}]chan *Payload
@@ -42,21 +59,8 @@ func newSession() *session {
 	}
 }
 
-type sessions struct {
-	sync.Mutex
-	sessions map[string]*session
-}
-
-var repository sessions
-
-func init() {
-	repository = sessions{
-		sessions: map[string]*session{},
-	}
-}
-
-func Emit(sessionID string, r Role, t Type, body interface{}) {
-	s, ok := repository.sessions[sessionID]
+func (i *Internal) Emit(sessionID string, r Role, t Type, body interface{}) {
+	s, ok := i.sessions[sessionID]
 	if !ok {
 		return
 	}
@@ -82,19 +86,19 @@ func Emit(sessionID string, r Role, t Type, body interface{}) {
 	}
 }
 
-func Subscribe(sessionID string, r Role, ws interface{}) (chan *Payload, error) {
+func (i *Internal) Subscribe(sessionID string, r Role, ws interface{}) (chan *Payload, error) {
 	log.Printf("subscribe %q", sessionID)
 	c := make(chan *Payload)
 
 	var s *session
 
-	s, ok := repository.sessions[sessionID]
+	s, ok := i.sessions[sessionID]
 	if !ok {
-		repository.Lock()
-		defer repository.Unlock()
+		i.Lock()
+		defer i.Unlock()
 
 		s = newSession()
-		repository.sessions[sessionID] = s
+		i.sessions[sessionID] = s
 	}
 
 	s.Lock()
@@ -110,9 +114,9 @@ func Subscribe(sessionID string, r Role, ws interface{}) (chan *Payload, error) 
 	return c, nil
 }
 
-func Unsubscribe(sessionID string, ws interface{}) error {
+func (i *Internal) Unsubscribe(sessionID string, ws interface{}) error {
 	log.Printf("unsubscribe %q", sessionID)
-	s, ok := repository.sessions[sessionID]
+	s, ok := i.sessions[sessionID]
 	if !ok {
 		return errors.New("no session found")
 	}
@@ -131,7 +135,7 @@ func Unsubscribe(sessionID string, ws interface{}) error {
 	}
 
 	if len(s.voters)+len(s.controllers) == 0 {
-		delete(repository.sessions, sessionID)
+		delete(i.sessions, sessionID)
 	}
 
 	return nil

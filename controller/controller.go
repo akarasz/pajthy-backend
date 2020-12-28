@@ -16,13 +16,25 @@ var (
 	ErrInvalidChoice      = errors.New("invalid choice")
 )
 
-func CreateSession(choices []string) (string, error) {
+type Controller struct {
+	store store.Store
+	event event.Event
+}
+
+func New(s store.Store, e event.Event) *Controller {
+	return &Controller{
+		store: s,
+		event: e,
+	}
+}
+
+func (c *Controller) CreateSession(choices []string) (string, error) {
 	id := generateID()
 
 	s := domain.NewSession()
 	s.Choices = choices
 
-	if err := store.Save(id, s); err != nil {
+	if err := c.store.Save(id, s); err != nil {
 		return id, err
 	}
 
@@ -47,8 +59,8 @@ type choicesResponse struct {
 	Open    bool
 }
 
-func Choices(id string) (*choicesResponse, error) {
-	s, err := store.Load(id)
+func (c *Controller) Choices(id string) (*choicesResponse, error) {
+	s, err := c.store.Load(id)
 	if err != nil {
 		return nil, err
 	}
@@ -59,8 +71,8 @@ func Choices(id string) (*choicesResponse, error) {
 	}, nil
 }
 
-func Vote(id string, v *domain.Vote) error {
-	s, err := store.Load(id)
+func (c *Controller) Vote(id string, v *domain.Vote) error {
+	s, err := c.store.Load(id)
 	if err != nil {
 		return err
 	}
@@ -95,21 +107,21 @@ func Vote(id string, v *domain.Vote) error {
 
 	if len(s.Votes) == len(s.Participants) {
 		s.Open = false
-		emitVoteDisabled(id)
+		c.emitVoteDisabled(id)
 	}
 
-	err = store.Save(id, s)
+	err = c.store.Save(id, s)
 	if err != nil {
 		return err
 	}
 
-	emitVote(id, s.Votes)
+	c.emitVote(id, s.Votes)
 
 	return nil
 }
 
-func GetSession(id string) (*domain.Session, error) {
-	s, err := store.Load(id)
+func (c *Controller) GetSession(id string) (*domain.Session, error) {
+	s, err := c.store.Load(id)
 	if err != nil {
 		return nil, err
 	}
@@ -117,8 +129,8 @@ func GetSession(id string) (*domain.Session, error) {
 	return s, nil
 }
 
-func StartVote(id string) error {
-	s, err := store.Load(id)
+func (c *Controller) StartVote(id string) error {
+	s, err := c.store.Load(id)
 	if err != nil {
 		return err
 	}
@@ -126,36 +138,36 @@ func StartVote(id string) error {
 	s.Open = true
 	s.Votes = map[string]string{}
 
-	err = store.Save(id, s)
+	err = c.store.Save(id, s)
 	if err != nil {
 		return err
 	}
 
-	emitVoteEnabled(id)
+	c.emitVoteEnabled(id)
 
 	return nil
 }
 
-func StopVote(id string) error {
-	s, err := store.Load(id)
+func (c *Controller) StopVote(id string) error {
+	s, err := c.store.Load(id)
 	if err != nil {
 		return err
 	}
 
 	s.Open = false
 
-	err = store.Save(id, s)
+	err = c.store.Save(id, s)
 	if err != nil {
 		return err
 	}
 
-	emitVoteDisabled(id)
+	c.emitVoteDisabled(id)
 
 	return nil
 }
 
-func ResetVote(id string) error {
-	s, err := store.Load(id)
+func (c *Controller) ResetVote(id string) error {
+	s, err := c.store.Load(id)
 	if err != nil {
 		return err
 	}
@@ -163,19 +175,19 @@ func ResetVote(id string) error {
 	s.Open = false
 	s.Votes = map[string]string{}
 
-	err = store.Save(id, s)
+	err = c.store.Save(id, s)
 	if err != nil {
 		return err
 	}
 
-	emitReset(id)
-	emitVote(id, s.Votes)
+	c.emitReset(id)
+	c.emitVote(id, s.Votes)
 
 	return nil
 }
 
-func KickParticipant(id string, name string) error {
-	s, err := store.Load(id)
+func (c *Controller) KickParticipant(id string, name string) error {
+	s, err := c.store.Load(id)
 	if err != nil {
 		return err
 	}
@@ -193,18 +205,18 @@ func KickParticipant(id string, name string) error {
 
 	s.Participants = append(s.Participants[:idx], s.Participants[idx+1:]...)
 
-	err = store.Save(id, s)
+	err = c.store.Save(id, s)
 	if err != nil {
 		return err
 	}
 
-	emitParticipantsChange(id, s.Participants)
+	c.emitParticipantsChange(id, s.Participants)
 
 	return nil
 }
 
-func Join(id string, name string) error {
-	s, err := store.Load(id)
+func (c *Controller) Join(id string, name string) error {
+	s, err := c.store.Load(id)
 	if err != nil {
 		return err
 	}
@@ -217,12 +229,12 @@ func Join(id string, name string) error {
 
 	s.Participants = append(s.Participants, name)
 
-	err = store.Save(id, s)
+	err = c.store.Save(id, s)
 	if err != nil {
 		return err
 	}
 
-	emitParticipantsChange(id, s.Participants)
+	c.emitParticipantsChange(id, s.Participants)
 
 	return nil
 }
@@ -239,32 +251,32 @@ type votesChangedData struct {
 	Votes map[string]string
 }
 
-func emitVoteEnabled(id string) {
+func (c *Controller) emitVoteEnabled(id string) {
 	m := &openChangedData{Open: true}
-	event.Emit(id, event.Voter, event.Enabled, m)
-	event.Emit(id, event.Controller, event.Enabled, m)
+	c.event.Emit(id, event.Voter, event.Enabled, m)
+	c.event.Emit(id, event.Controller, event.Enabled, m)
 }
 
-func emitVoteDisabled(id string) {
+func (c *Controller) emitVoteDisabled(id string) {
 	m := &openChangedData{Open: false}
-	event.Emit(id, event.Voter, event.Disabled, m)
-	event.Emit(id, event.Controller, event.Disabled, m)
+	c.event.Emit(id, event.Voter, event.Disabled, m)
+	c.event.Emit(id, event.Controller, event.Disabled, m)
 }
 
-func emitReset(id string) {
+func (c *Controller) emitReset(id string) {
 	m := &openChangedData{Open: false}
-	event.Emit(id, event.Voter, event.Reset, m)
-	event.Emit(id, event.Controller, event.Reset, m)
+	c.event.Emit(id, event.Voter, event.Reset, m)
+	c.event.Emit(id, event.Controller, event.Reset, m)
 }
 
-func emitParticipantsChange(id string, participants []string) {
-	event.Emit(
+func (c *Controller) emitParticipantsChange(id string, participants []string) {
+	c.event.Emit(
 		id,
 		event.Controller,
 		event.ParticipantsChange,
 		&participantsChangedData{Participants: participants})
 }
 
-func emitVote(id string, votes map[string]string) {
-	event.Emit(id, event.Controller, event.Vote, &votesChangedData{Votes: votes})
+func (c *Controller) emitVote(id string, votes map[string]string) {
+	c.event.Emit(id, event.Controller, event.Vote, &votesChangedData{Votes: votes})
 }
