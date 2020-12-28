@@ -25,14 +25,14 @@ type Internal struct {
 	repo map[string]*domain.Session
 }
 
-func (im *Internal) Save(id string, s *domain.Session) error {
-	im.repo[id] = s
+func (i *Internal) Save(id string, s *domain.Session) error {
+	i.repo[id] = s
 
 	return nil
 }
 
-func (im *Internal) Load(id string) (*domain.Session, error) {
-	s, ok := im.repo[id]
+func (i *Internal) Load(id string) (*domain.Session, error) {
+	s, ok := i.repo[id]
 	if !ok {
 		return s, ErrNotExists
 	}
