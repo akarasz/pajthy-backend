@@ -42,18 +42,18 @@ func generateID() string {
 	return string(b)
 }
 
-type ChoicesResponse struct {
+type choicesResponse struct {
 	Choices []string
 	Open    bool
 }
 
-func Choices(id string) (*ChoicesResponse, error) {
+func Choices(id string) (*choicesResponse, error) {
 	s, err := store.Load(id)
 	if err != nil {
 		return nil, err
 	}
 
-	return &ChoicesResponse{
+	return &choicesResponse{
 		Choices: s.Choices,
 		Open:    s.Open,
 	}, nil
@@ -95,7 +95,7 @@ func Vote(id string, v *domain.Vote) error {
 
 	if len(s.Votes) == len(s.Participants) {
 		s.Open = false
-		event.EmitVoteDisabled(id)
+		emitVoteDisabled(id)
 	}
 
 	err = store.Save(id, s)
@@ -103,7 +103,7 @@ func Vote(id string, v *domain.Vote) error {
 		return err
 	}
 
-	event.EmitVote(id, s.Votes)
+	emitVote(id, s.Votes)
 
 	return nil
 }
@@ -131,7 +131,7 @@ func StartVote(id string) error {
 		return err
 	}
 
-	event.EmitVoteEnabled(id)
+	emitVoteEnabled(id)
 
 	return nil
 }
@@ -149,7 +149,7 @@ func StopVote(id string) error {
 		return err
 	}
 
-	event.EmitVoteDisabled(id)
+	emitVoteDisabled(id)
 
 	return nil
 }
@@ -168,8 +168,8 @@ func ResetVote(id string) error {
 		return err
 	}
 
-	event.EmitReset(id)
-	event.EmitVote(id, s.Votes)
+	emitReset(id)
+	emitVote(id, s.Votes)
 
 	return nil
 }
@@ -198,7 +198,7 @@ func KickParticipant(id string, name string) error {
 		return err
 	}
 
-	event.EmitParticipantsChange(id, s.Participants)
+	emitParticipantsChange(id, s.Participants)
 
 	return nil
 }
@@ -222,7 +222,49 @@ func Join(id string, name string) error {
 		return err
 	}
 
-	event.EmitParticipantsChange(id, s.Participants)
+	emitParticipantsChange(id, s.Participants)
 
 	return nil
+}
+
+type openChangedData struct {
+	Open bool
+}
+
+type participantsChangedData struct {
+	Participants []string
+}
+
+type votesChangedData struct {
+	Votes map[string]string
+}
+
+func emitVoteEnabled(id string) {
+	m := &openChangedData{Open: true}
+	event.Emit(id, event.Voter, event.Enabled, m)
+	event.Emit(id, event.Controller, event.Enabled, m)
+}
+
+func emitVoteDisabled(id string) {
+	m := &openChangedData{Open: false}
+	event.Emit(id, event.Voter, event.Disabled, m)
+	event.Emit(id, event.Controller, event.Disabled, m)
+}
+
+func emitReset(id string) {
+	m := &openChangedData{Open: false}
+	event.Emit(id, event.Voter, event.Reset, m)
+	event.Emit(id, event.Controller, event.Reset, m)
+}
+
+func emitParticipantsChange(id string, participants []string) {
+	event.Emit(
+		id,
+		event.Controller,
+		event.ParticipantsChange,
+		&participantsChangedData{Participants: participants})
+}
+
+func emitVote(id string, votes map[string]string) {
+	event.Emit(id, event.Controller, event.Vote, &votesChangedData{Votes: votes})
 }

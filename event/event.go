@@ -6,11 +6,11 @@ import (
 	"sync"
 )
 
-type role int
+type Role int
 
 const (
-	engineer role = iota
-	scrumMaster
+	Voter Role = iota
+	Controller
 )
 
 type Type string
@@ -31,14 +31,14 @@ type Payload struct {
 
 type session struct {
 	sync.Mutex
-	engineers    map[interface{}]chan *Payload
-	scrumMasters map[interface{}]chan *Payload
+	voters      map[interface{}]chan *Payload
+	controllers map[interface{}]chan *Payload
 }
 
 func newSession() *session {
 	return &session{
-		engineers:    map[interface{}]chan *Payload{},
-		scrumMasters: map[interface{}]chan *Payload{},
+		voters:      map[interface{}]chan *Payload{},
+		controllers: map[interface{}]chan *Payload{},
 	}
 }
 
@@ -55,7 +55,7 @@ func init() {
 	}
 }
 
-func emit(sessionID string, r role, body *Payload) {
+func Emit(sessionID string, r Role, t Type, body interface{}) {
 	s, ok := repository.sessions[sessionID]
 	if !ok {
 		return
@@ -65,76 +65,25 @@ func emit(sessionID string, r role, body *Payload) {
 	defer s.Unlock()
 
 	switch r {
-	case engineer:
-		for _, c := range s.engineers {
-			c <- body
+	case Voter:
+		for _, c := range s.voters {
+			c <- &Payload{
+				Kind: t,
+				Data: body,
+			}
 		}
-	case scrumMaster:
-		for _, c := range s.scrumMasters {
-			c <- body
+	case Controller:
+		for _, c := range s.controllers {
+			c <- &Payload{
+				Kind: t,
+				Data: body,
+			}
 		}
 	}
 }
 
-type openChangedData struct {
-	Open bool
-}
-
-type participantsChangedData struct {
-	Participants []string
-}
-
-type votesChangedData struct {
-	Votes map[string]string
-}
-
-func EmitVoteEnabled(sessionID string) {
-	log.Printf("emit enabled %q", sessionID)
-	m := &Payload{
-		Kind: Enabled,
-		Data: &openChangedData{true},
-	}
-	emit(sessionID, engineer, m)
-	emit(sessionID, scrumMaster, m)
-}
-
-func EmitVoteDisabled(sessionID string) {
-	log.Printf("emit disabled %q", sessionID)
-	m := &Payload{
-		Kind: Disabled,
-		Data: &openChangedData{false},
-	}
-	emit(sessionID, engineer, m)
-	emit(sessionID, scrumMaster, m)
-}
-
-func EmitReset(sessionID string) {
-	log.Printf("emit reset %q", sessionID)
-	m := &Payload{
-		Kind: Reset,
-		Data: &openChangedData{false},
-	}
-	emit(sessionID, engineer, m)
-	emit(sessionID, scrumMaster, m)
-}
-
-func EmitParticipantsChange(sessionID string, participants []string) {
-	log.Printf("emit participants change %q %q", sessionID, participants)
-	emit(sessionID, scrumMaster, &Payload{
-		Kind: ParticipantsChange,
-		Data: &participantsChangedData{participants},
-	})
-}
-
-func EmitVote(sessionID string, votes map[string]string) {
-	log.Printf("emit vote %q %q", sessionID, votes)
-	emit(sessionID, scrumMaster, &Payload{
-		Kind: Vote,
-		Data: &votesChangedData{votes},
-	})
-}
-
-func subscribe(sessionID string, r role, ws interface{}) (chan *Payload, error) {
+func Subscribe(sessionID string, r Role, ws interface{}) (chan *Payload, error) {
+	log.Printf("subscribe %q", sessionID)
 	c := make(chan *Payload)
 
 	var s *session
@@ -152,23 +101,13 @@ func subscribe(sessionID string, r role, ws interface{}) (chan *Payload, error) 
 	defer s.Unlock()
 
 	switch r {
-	case engineer:
-		s.engineers[ws] = c
-	case scrumMaster:
-		s.scrumMasters[ws] = c
+	case Voter:
+		s.voters[ws] = c
+	case Controller:
+		s.controllers[ws] = c
 	}
 
 	return c, nil
-}
-
-func SubscribeEngineer(sessionID string, ws interface{}) (chan *Payload, error) {
-	log.Printf("subscribe engineer %q", sessionID)
-	return subscribe(sessionID, engineer, ws)
-}
-
-func SubscribeScrumMaster(sessionID string, ws interface{}) (chan *Payload, error) {
-	log.Printf("subscribe scrum master %q", sessionID)
-	return subscribe(sessionID, scrumMaster, ws)
 }
 
 func Unsubscribe(sessionID string, ws interface{}) error {
@@ -181,17 +120,17 @@ func Unsubscribe(sessionID string, ws interface{}) error {
 	s.Lock()
 	defer s.Unlock()
 
-	if c, ok := s.engineers[ws]; ok {
+	if c, ok := s.voters[ws]; ok {
 		close(c)
-		delete(s.engineers, ws)
+		delete(s.voters, ws)
 	}
 
-	if c, ok := s.scrumMasters[ws]; ok {
+	if c, ok := s.controllers[ws]; ok {
 		close(c)
-		delete(s.scrumMasters, ws)
+		delete(s.controllers, ws)
 	}
 
-	if len(s.engineers)+len(s.scrumMasters) == 0 {
+	if len(s.voters)+len(s.controllers) == 0 {
 		delete(repository.sessions, sessionID)
 	}
 

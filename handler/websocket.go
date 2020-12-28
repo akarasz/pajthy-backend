@@ -78,7 +78,7 @@ func WS(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	c, err := event.SubscribeEngineer(session, ws)
+	c, err := event.Subscribe(session, event.Voter, ws)
 	if err != nil {
 		http.Error(w, "unable to subscribe", http.StatusInternalServerError)
 		return
@@ -109,7 +109,7 @@ func ControlWS(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	c, err := event.SubscribeScrumMaster(session, ws)
+	c, err := event.Subscribe(session, event.Controller, ws)
 	if err != nil {
 		http.Error(w, "unable to subscribe", http.StatusInternalServerError)
 		return
