@@ -9,6 +9,7 @@ import (
 	"github.com/gorilla/websocket"
 
 	"github.com/akarasz/pajthy-backend/event"
+	"github.com/akarasz/pajthy-backend/store"
 )
 
 const (
@@ -73,7 +74,7 @@ func (h *Handler) WS(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if _, err := h.store.Load(session); err != nil {
+	if _, err := h.store.Load(session); err == store.ErrNotExists {
 		http.Error(w, "session not found", http.StatusNotFound)
 		return
 	}
@@ -105,7 +106,7 @@ func (h *Handler) ControlWS(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if _, err := h.store.Load(session); err != nil {
+	if _, err := h.store.Load(session); err == store.ErrNotExists {
 		http.Error(w, "session not found", http.StatusNotFound)
 		return
 	}

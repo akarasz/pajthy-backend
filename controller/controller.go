@@ -34,7 +34,7 @@ func (c *Controller) CreateSession(choices []string) (string, error) {
 	s := domain.NewSession()
 	s.Choices = choices
 
-	if err := c.store.Save(id, s); err != nil {
+	if err := c.store.Create(id, s); err != nil {
 		return id, err
 	}
 
@@ -60,10 +60,11 @@ type choicesResponse struct {
 }
 
 func (c *Controller) Choices(id string) (*choicesResponse, error) {
-	s, err := c.store.Load(id)
+	s, err := c.store.LockAndLoad(id)
 	if err != nil {
 		return nil, err
 	}
+	defer c.store.Unlock(id)
 
 	return &choicesResponse{
 		Choices: s.Choices,
@@ -72,10 +73,11 @@ func (c *Controller) Choices(id string) (*choicesResponse, error) {
 }
 
 func (c *Controller) Vote(id string, v *domain.Vote) error {
-	s, err := c.store.Load(id)
+	s, err := c.store.LockAndLoad(id)
 	if err != nil {
 		return err
 	}
+	defer c.store.Unlock(id)
 
 	if !s.Open {
 		return ErrSessionIsClosed
@@ -110,7 +112,7 @@ func (c *Controller) Vote(id string, v *domain.Vote) error {
 		c.emitVoteDisabled(id)
 	}
 
-	err = c.store.Save(id, s)
+	err = c.store.Update(id, s)
 	if err != nil {
 		return err
 	}
@@ -121,24 +123,26 @@ func (c *Controller) Vote(id string, v *domain.Vote) error {
 }
 
 func (c *Controller) GetSession(id string) (*domain.Session, error) {
-	s, err := c.store.Load(id)
+	s, err := c.store.LockAndLoad(id)
 	if err != nil {
 		return nil, err
 	}
+	defer c.store.Unlock(id)
 
 	return s, nil
 }
 
 func (c *Controller) StartVote(id string) error {
-	s, err := c.store.Load(id)
+	s, err := c.store.LockAndLoad(id)
 	if err != nil {
 		return err
 	}
+	defer c.store.Unlock(id)
 
 	s.Open = true
 	s.Votes = map[string]string{}
 
-	err = c.store.Save(id, s)
+	err = c.store.Update(id, s)
 	if err != nil {
 		return err
 	}
@@ -149,14 +153,15 @@ func (c *Controller) StartVote(id string) error {
 }
 
 func (c *Controller) StopVote(id string) error {
-	s, err := c.store.Load(id)
+	s, err := c.store.LockAndLoad(id)
 	if err != nil {
 		return err
 	}
+	defer c.store.Unlock(id)
 
 	s.Open = false
 
-	err = c.store.Save(id, s)
+	err = c.store.Update(id, s)
 	if err != nil {
 		return err
 	}
@@ -167,15 +172,16 @@ func (c *Controller) StopVote(id string) error {
 }
 
 func (c *Controller) ResetVote(id string) error {
-	s, err := c.store.Load(id)
+	s, err := c.store.LockAndLoad(id)
 	if err != nil {
 		return err
 	}
+	defer c.store.Unlock(id)
 
 	s.Open = false
 	s.Votes = map[string]string{}
 
-	err = c.store.Save(id, s)
+	err = c.store.Update(id, s)
 	if err != nil {
 		return err
 	}
@@ -187,10 +193,11 @@ func (c *Controller) ResetVote(id string) error {
 }
 
 func (c *Controller) KickParticipant(id string, name string) error {
-	s, err := c.store.Load(id)
+	s, err := c.store.LockAndLoad(id)
 	if err != nil {
 		return err
 	}
+	defer c.store.Unlock(id)
 
 	idx := -1
 	for i, p := range s.Participants {
@@ -205,7 +212,7 @@ func (c *Controller) KickParticipant(id string, name string) error {
 
 	s.Participants = append(s.Participants[:idx], s.Participants[idx+1:]...)
 
-	err = c.store.Save(id, s)
+	err = c.store.Update(id, s)
 	if err != nil {
 		return err
 	}
@@ -216,10 +223,11 @@ func (c *Controller) KickParticipant(id string, name string) error {
 }
 
 func (c *Controller) Join(id string, name string) error {
-	s, err := c.store.Load(id)
+	s, err := c.store.LockAndLoad(id)
 	if err != nil {
 		return err
 	}
+	defer c.store.Unlock(id)
 
 	for _, p := range s.Participants {
 		if p == name {
@@ -229,7 +237,7 @@ func (c *Controller) Join(id string, name string) error {
 
 	s.Participants = append(s.Participants, name)
 
-	err = c.store.Save(id, s)
+	err = c.store.Update(id, s)
 	if err != nil {
 		return err
 	}
