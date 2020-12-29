@@ -6,16 +6,16 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/akarasz/pajthy-backend/event"
+	event "github.com/akarasz/pajthy-backend/event/local"
 	"github.com/akarasz/pajthy-backend/handler"
-	"github.com/akarasz/pajthy-backend/store"
+	store "github.com/akarasz/pajthy-backend/store/local"
 )
 
 func main() {
 	rand.Seed(time.Now().UnixNano())
 
-	s := store.NewInternal()
-	e := event.NewInternal()
+	s := store.New()
+	e := event.New()
 
 	log.Fatal(http.ListenAndServe(":8000", handler.NewRouter(s, e)))
 }

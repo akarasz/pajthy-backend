@@ -9,11 +9,11 @@ build:
 	go build ./...
 
 .PHONY := test
-test:
+test: build
 	go test --count=1 ./...
 
 .PHONY := docker
-docker:
+docker: test
 	docker build -t "$(docker_container):latest" -t "$(docker_container):$(version)" .
 
 .PHONY := run
