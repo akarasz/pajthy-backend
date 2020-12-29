@@ -15,7 +15,7 @@ func (h *Handler) createSession(w http.ResponseWriter, r *http.Request) {
 	log.Print("create session")
 
 	var choices []string
-	if err := parseContent(w, r, &choices); err != nil {
+	if err := readContent(w, r, &choices); err != nil {
 		return
 	}
 
@@ -24,7 +24,7 @@ func (h *Handler) createSession(w http.ResponseWriter, r *http.Request) {
 	s.Choices = choices
 
 	if err := h.store.Create(id, s); err != nil {
-		handleStoreError(w, err)
+		showStoreError(w, err)
 		return
 	}
 
@@ -53,11 +53,11 @@ func (h *Handler) getSession(w http.ResponseWriter, r *http.Request) {
 	s, err := h.store.LockAndLoad(session)
 	defer h.store.Unlock(session)
 	if err != nil {
-		handleStoreError(w, err)
+		showStoreError(w, err)
 		return
 	}
 
-	if err := sendJSON(w, s); err != nil {
+	if err := showJSON(w, s); err != nil {
 		return
 	}
 }
@@ -70,7 +70,7 @@ func (h *Handler) startVote(w http.ResponseWriter, r *http.Request) {
 	s, err := h.store.LockAndLoad(session)
 	defer h.store.Unlock(session)
 	if err != nil {
-		handleStoreError(w, err)
+		showStoreError(w, err)
 		return
 	}
 
@@ -78,7 +78,7 @@ func (h *Handler) startVote(w http.ResponseWriter, r *http.Request) {
 	s.Votes = map[string]string{}
 
 	if err := h.store.Update(session, s); err != nil {
-		handleStoreError(w, err)
+		showStoreError(w, err)
 		return
 	}
 
@@ -95,14 +95,14 @@ func (h *Handler) stopVote(w http.ResponseWriter, r *http.Request) {
 	s, err := h.store.LockAndLoad(session)
 	defer h.store.Unlock(session)
 	if err != nil {
-		handleStoreError(w, err)
+		showStoreError(w, err)
 		return
 	}
 
 	s.Open = false
 
 	if err := h.store.Update(session, s); err != nil {
-		handleStoreError(w, err)
+		showStoreError(w, err)
 		return
 	}
 
@@ -119,7 +119,7 @@ func (h *Handler) resetVote(w http.ResponseWriter, r *http.Request) {
 	s, err := h.store.LockAndLoad(session)
 	defer h.store.Unlock(session)
 	if err != nil {
-		handleStoreError(w, err)
+		showStoreError(w, err)
 		return
 	}
 
@@ -127,7 +127,7 @@ func (h *Handler) resetVote(w http.ResponseWriter, r *http.Request) {
 	s.Votes = map[string]string{}
 
 	if err := h.store.Update(session, s); err != nil {
-		handleStoreError(w, err)
+		showStoreError(w, err)
 		return
 	}
 
@@ -141,7 +141,7 @@ func (h *Handler) kickParticipant(w http.ResponseWriter, r *http.Request) {
 	session := mux.Vars(r)["session"]
 
 	var name string
-	if err := parseContent(w, r, &name); err != nil {
+	if err := readContent(w, r, &name); err != nil {
 		return
 	}
 
@@ -150,7 +150,7 @@ func (h *Handler) kickParticipant(w http.ResponseWriter, r *http.Request) {
 	s, err := h.store.LockAndLoad(session)
 	defer h.store.Unlock(session)
 	if err != nil {
-		handleStoreError(w, err)
+		showStoreError(w, err)
 		return
 	}
 
@@ -162,13 +162,13 @@ func (h *Handler) kickParticipant(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if idx < 0 {
-		http.Error(w, "not a participant", http.StatusBadRequest)
+		showError(w, http.StatusBadRequest, "not a participant", nil)
 		return
 	}
 	s.Participants = append(s.Participants[:idx], s.Participants[idx+1:]...)
 
 	if err := h.store.Update(session, s); err != nil {
-		handleStoreError(w, err)
+		showStoreError(w, err)
 		return
 	}
 

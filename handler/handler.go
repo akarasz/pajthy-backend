@@ -3,9 +3,9 @@ package handler
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io/ioutil"
 	"net/http"
+	"log"
 
 	"github.com/gorilla/mux"
 
@@ -66,32 +66,39 @@ func corsMiddleware(next http.Handler) http.Handler {
 	})
 }
 
-func parseContent(w http.ResponseWriter, r *http.Request, dest interface{}) error {
+func readContent(w http.ResponseWriter, r *http.Request, dest interface{}) error {
 	rawBody, err := ioutil.ReadAll(r.Body)
 	if err != nil {
-		http.Error(w, "wrong body", http.StatusBadRequest)
+		showError(w, http.StatusBadRequest, "wrong body", err)
 		return err
 	}
 	if err := json.Unmarshal(rawBody, &dest); err != nil {
-		http.Error(w, fmt.Sprintf("request json decoding: %v", err), http.StatusBadRequest)
+		showError(w, http.StatusInternalServerError, "request json decoding", err)
 		return err
 	}
 	return nil
 }
 
-func sendJSON(w http.ResponseWriter, payload interface{}) error {
+func showJSON(w http.ResponseWriter, payload interface{}) error {
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(payload); err != nil {
-		http.Error(w, "response json encoding", http.StatusInternalServerError)
+		showError(w, http.StatusInternalServerError, "response json encoding", err)
 		return err
 	}
 	return nil
 }
 
-func handleStoreError(w http.ResponseWriter, err error) {
+func showStoreError(w http.ResponseWriter, err error) {
 	if errors.Is(err, store.ErrNotExists) {
-		http.Error(w, fmt.Sprintf("%v", err), http.StatusNotFound)
+		showError(w, http.StatusNotFound, "session not exists", err)
+	} else if errors.Is(err, store.ErrAlreadyExists) {
+		showError(w, http.StatusConflict, "session already exists", err)
 	} else {
-		http.Error(w, fmt.Sprintf("%v", err), http.StatusInternalServerError)
+		showError(w, http.StatusInternalServerError, "unknown error", err)
 	}
+}
+
+func showError(w http.ResponseWriter, code int, msg string, err error) {
+	http.Error(w, msg, code)
+	log.Printf("%s: %v", msg, err)
 }

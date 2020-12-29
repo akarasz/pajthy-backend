@@ -22,7 +22,7 @@ func (h *Handler) choices(w http.ResponseWriter, r *http.Request) {
 	s, err := h.store.LockAndLoad(session)
 	defer h.store.Unlock(session)
 	if err != nil {
-		handleStoreError(w, err)
+		showStoreError(w, err)
 		return
 	}
 
@@ -31,7 +31,7 @@ func (h *Handler) choices(w http.ResponseWriter, r *http.Request) {
 		Open:    s.Open,
 	}
 
-	if err := sendJSON(w, res); err != nil {
+	if err := showJSON(w, res); err != nil {
 		return
 	}
 }
@@ -40,7 +40,7 @@ func (h *Handler) vote(w http.ResponseWriter, r *http.Request) {
 	session := mux.Vars(r)["session"]
 
 	var v domain.Vote
-	if err := parseContent(w, r, &v); err != nil {
+	if err := readContent(w, r, &v); err != nil {
 		return
 	}
 
@@ -49,12 +49,12 @@ func (h *Handler) vote(w http.ResponseWriter, r *http.Request) {
 	s, err := h.store.LockAndLoad(session)
 	defer h.store.Unlock(session)
 	if err != nil {
-		handleStoreError(w, err)
+		showStoreError(w, err)
 		return
 	}
 
 	if !s.Open {
-		http.Error(w, "session is closed", http.StatusBadRequest)
+		showError(w, http.StatusBadRequest, "session is closed", nil)
 		return
 	}
 
@@ -66,7 +66,7 @@ func (h *Handler) vote(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if !hasVoter {
-		http.Error(w, "invalid voter", http.StatusBadRequest)
+		showError(w, http.StatusBadRequest, "invalid voter", nil)
 		return
 	}
 
@@ -78,7 +78,7 @@ func (h *Handler) vote(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if !hasChoice {
-		http.Error(w, "invalid choice", http.StatusBadRequest)
+		showError(w, http.StatusBadRequest, "invalid choice", nil)
 		return
 	}
 
@@ -90,7 +90,7 @@ func (h *Handler) vote(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err = h.store.Update(session, s); err != nil {
-		handleStoreError(w, err)
+		showStoreError(w, err)
 		return
 	}
 
@@ -103,7 +103,7 @@ func (h *Handler) join(w http.ResponseWriter, r *http.Request) {
 	session := mux.Vars(r)["session"]
 
 	var name string
-	if err := parseContent(w, r, &name); err != nil {
+	if err := readContent(w, r, &name); err != nil {
 		return
 	}
 
@@ -112,13 +112,13 @@ func (h *Handler) join(w http.ResponseWriter, r *http.Request) {
 	s, err := h.store.LockAndLoad(session)
 	defer h.store.Unlock(session)
 	if err != nil {
-		handleStoreError(w, err)
+		showStoreError(w, err)
 		return
 	}
 
 	for _, p := range s.Participants {
 		if p == name {
-			http.Error(w, "already joined", http.StatusConflict)
+			showError(w, http.StatusConflict, "already joined", nil)
 			return
 		}
 	}
@@ -126,7 +126,7 @@ func (h *Handler) join(w http.ResponseWriter, r *http.Request) {
 
 	err = h.store.Update(session, s)
 	if err != nil {
-		handleStoreError(w, err)
+		showStoreError(w, err)
 		return
 	}
 

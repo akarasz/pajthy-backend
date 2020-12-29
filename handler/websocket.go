@@ -65,19 +65,19 @@ func (h *Handler) ws(w http.ResponseWriter, r *http.Request) {
 	ws, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		if _, ok := err.(websocket.HandshakeError); !ok {
-			http.Error(w, "unknown error", http.StatusInternalServerError)
+			showError(w, http.StatusInternalServerError, "unknown error", err)
 		}
 		return
 	}
 
 	if _, err := h.store.Load(session); err == store.ErrNotExists {
-		http.Error(w, "session not found", http.StatusNotFound)
+		showError(w, http.StatusBadRequest, "session not found", err)
 		return
 	}
 
 	c, err := h.event.Subscribe(session, event.Voter, ws)
 	if err != nil {
-		http.Error(w, "unable to subscribe", http.StatusInternalServerError)
+		showError(w, http.StatusInternalServerError, "unable to subscribe", err)
 		return
 	}
 
@@ -93,19 +93,19 @@ func (h *Handler) controlWS(w http.ResponseWriter, r *http.Request) {
 	ws, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		if _, ok := err.(websocket.HandshakeError); !ok {
-			http.Error(w, "unknown error", http.StatusInternalServerError)
+			showError(w, http.StatusInternalServerError, "unknown error", err)
 		}
 		return
 	}
 
 	if _, err := h.store.Load(session); err == store.ErrNotExists {
-		http.Error(w, "session not found", http.StatusNotFound)
+		showError(w, http.StatusBadRequest, "session not found", err)
 		return
 	}
 
 	c, err := h.event.Subscribe(session, event.Controller, ws)
 	if err != nil {
-		http.Error(w, "unable to subscribe", http.StatusInternalServerError)
+		showError(w, http.StatusInternalServerError, "unable to subscribe", err)
 		return
 	}
 
