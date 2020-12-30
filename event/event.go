@@ -16,12 +16,12 @@ const (
 type Type string
 
 const (
-	Enabled            = "enabled"
-	Disabled           = "disabled"
-	Reset              = "reset"
-	ParticipantsChange = "participants-change"
-	Vote               = "vote"
-	Done               = "done"
+	Enabled            = Type("enabled")
+	Disabled           = Type("disabled")
+	Reset              = Type("reset")
+	ParticipantsChange = Type("participants-change")
+	Vote               = Type("vote")
+	Done               = Type("done")
 )
 
 type Payload struct {
