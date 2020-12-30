@@ -9,7 +9,7 @@ import (
 	"github.com/akarasz/pajthy-backend/domain"
 )
 
-type choicesResponse struct {
+type ChoicesResponse struct {
 	Choices []string
 	Open    bool
 }
@@ -26,7 +26,7 @@ func (h *Handler) choices(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	res := &choicesResponse{
+	res := &ChoicesResponse{
 		Choices: s.Choices,
 		Open:    s.Open,
 	}
