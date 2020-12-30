@@ -6,9 +6,9 @@ import (
 	"net/http"
 	"time"
 
-	event "github.com/akarasz/pajthy-backend/event/local"
+	"github.com/akarasz/pajthy-backend/event"
 	"github.com/akarasz/pajthy-backend/handler"
-	store "github.com/akarasz/pajthy-backend/store/local"
+	"github.com/akarasz/pajthy-backend/store"
 )
 
 func main() {

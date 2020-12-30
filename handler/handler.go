@@ -14,11 +14,11 @@ import (
 )
 
 type Handler struct {
-	store store.Store
-	event event.Event
+	store *store.Store
+	event *event.Event
 }
 
-func NewRouter(s store.Store, e event.Event) *mux.Router {
+func NewRouter(s *store.Store, e *event.Event) *mux.Router {
 	h := &Handler{
 		store: s,
 		event: e,
