@@ -29,6 +29,13 @@ type Payload struct {
 	Data interface{}
 }
 
+func NewPayload(kind Type, data interface{}) *Payload {
+	return &Payload{
+		Kind: kind,
+		Data: data,
+	}
+}
+
 type Event struct {
 	sync.Mutex
 	sessions map[string]*session
@@ -65,17 +72,11 @@ func (e *Event) Emit(sessionID string, r Role, t Type, body interface{}) {
 	switch r {
 	case Voter:
 		for _, c := range s.voters {
-			c <- &Payload{
-				Kind: t,
-				Data: body,
-			}
+			c <- NewPayload(t, body)
 		}
 	case Controller:
 		for _, c := range s.controllers {
-			c <- &Payload{
-				Kind: t,
-				Data: body,
-			}
+			c <- NewPayload(t, body)
 		}
 	}
 }
