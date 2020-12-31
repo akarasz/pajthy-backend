@@ -256,7 +256,7 @@ func TestResetVote(t *testing.T) {
 }
 
 func TestKickParticipant(t *testing.T) {
-s := store.New()
+	s := store.New()
 	e := event.New()
 	r := handler.NewRouter(s, e)
 
