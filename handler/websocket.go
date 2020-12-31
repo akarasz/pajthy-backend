@@ -115,38 +115,38 @@ func (h *Handler) controlWS(w http.ResponseWriter, r *http.Request) {
 	h.reader(ws, session)
 }
 
-type openChangedData struct {
+type OpenChangedData struct {
 	Open bool
 }
 
-type votesChangedData struct {
+type VotesChangedData struct {
 	Votes map[string]string
 }
 
-type participantsChangedData struct {
+type ParticipantsChangedData struct {
 	Participants []string
 }
 
 func (h *Handler) emitVoteEnabled(id string) {
-	m := &openChangedData{Open: true}
+	m := &OpenChangedData{Open: true}
 	h.event.Emit(id, event.Voter, event.Enabled, m)
 	h.event.Emit(id, event.Controller, event.Enabled, m)
 }
 
 func (h *Handler) emitVoteDisabled(id string) {
-	m := &openChangedData{Open: false}
+	m := &OpenChangedData{Open: false}
 	h.event.Emit(id, event.Voter, event.Disabled, m)
 	h.event.Emit(id, event.Controller, event.Disabled, m)
 }
 
 func (h *Handler) emitReset(id string) {
-	m := &openChangedData{Open: false}
+	m := &OpenChangedData{Open: false}
 	h.event.Emit(id, event.Voter, event.Reset, m)
 	h.event.Emit(id, event.Controller, event.Reset, m)
 }
 
 func (h *Handler) emitVote(id string, votes map[string]string) {
-	h.event.Emit(id, event.Controller, event.Vote, &votesChangedData{Votes: votes})
+	h.event.Emit(id, event.Controller, event.Vote, &VotesChangedData{Votes: votes})
 }
 
 func (c *Handler) emitParticipantsChange(id string, participants []string) {
@@ -154,5 +154,5 @@ func (c *Handler) emitParticipantsChange(id string, participants []string) {
 		id,
 		event.Controller,
 		event.ParticipantsChange,
-		&participantsChangedData{Participants: participants})
+		&ParticipantsChangedData{Participants: participants})
 }
