@@ -256,11 +256,47 @@ func TestResetVote(t *testing.T) {
 }
 
 func TestKickParticipant(t *testing.T) {
+s := store.New()
+	e := event.New()
+	r := handler.NewRouter(s, e)
+
 	// returns 404 when no id is in store
-	// returns 400 when trying to remove a nonexistsing participant
-	// returns 204 when successful
-	// removes the participant from the store
-	// emits a participant change event to controllers
+	rr := newRequest(t, r, "PATCH", "/bcdef/control/kick", `"Bob"`)
+	if got, want := rr.Code, http.StatusNotFound; got != want {
+		t.Errorf("wrong response code for not-existing id. got %v want %v", got, want)
+	}
+
+	// successful request
+	insertToStore(t, s, "bcdef", &domain.Session{
+		Choices: []string{ "square", "circle", "triangle" },
+		Open: false,
+		Votes: map[string]string{},
+		Participants: []string{ "Alice", "Bob" },
+	})
+	controllerEvent := make(chan *event.Payload)
+	wg := &sync.WaitGroup{}
+	wg.Add(1)
+	go waitForEvent(t, e, wg, "bcdef", event.Controller, controllerEvent)
+	wg.Wait()
+
+	rr = newRequest(t, r, "PATCH", "/bcdef/control/kick", `"Bob"`)
+	if got, want := rr.Code, http.StatusNoContent; got != want {
+		t.Errorf("wrong response code. got %v want %v", got, want)
+	}
+	sess := readFromStore(t, s, "bcdef")
+	if got, want := sess.Participants, []string{"Alice"}; !reflect.DeepEqual(got, want) {
+		t.Errorf("wrong Participants. got %v want %v", got, want)
+	}
+	got := <- controllerEvent
+	if got == nil {
+		t.Fatalf("no event received")
+	}
+	want := &handler.ParticipantsChangedData{
+		Participants: []string{ "Alice" },
+	}
+	if got.Kind != event.ParticipantsChange || !reflect.DeepEqual(got.Data, want) {
+		t.Errorf("wrong payload in event. got %v want %v", got, want)
+	}
 }
 
 func TestJoin(t *testing.T) {
