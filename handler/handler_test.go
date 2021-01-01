@@ -372,6 +372,7 @@ func waitForEvent(t *testing.T, e *event.Event, done chan bool, id string, r eve
 			result <- got
 		case <-time.After(1 * time.Second):
 			result <- nil
+			close(result)
 			return
 		}
 	}

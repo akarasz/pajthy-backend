@@ -19,7 +19,7 @@ func TestSubscribe(t *testing.T) {
 
 	go e.Emit("id", event.Voter, event.Enabled, "payload")
 
-	assert.NotNil(t, receivePayload(c), "no event received")
+	assert.NotNil(t, <-receivePayload(c), "no event received")
 }
 
 func TestUnsubscribe(t *testing.T) {
@@ -31,7 +31,7 @@ func TestUnsubscribe(t *testing.T) {
 	assert.NoError(t, err)
 
 	go e.Emit("id", event.Voter, event.Enabled, "payload")
-	assert.Nil(t, receivePayload(c), "event received after unsubscribe")
+	assert.Nil(t, <-receivePayload(c), "event received after unsubscribe")
 
 	// unsubscribing with uknown key returns an error
 	err = e.Unsubscribe("id", "wsID")
@@ -46,22 +46,23 @@ func TestEmit_SendingTo(t *testing.T) {
 	bob := mustSubscribe(t, e, "a", event.Voter, "bob")
 	carol := mustSubscribe(t, e, "a", event.Controller, "carol")
 	dave := mustSubscribe(t, e, "b", event.Voter, "dave")
-	var aliceReceived, bobReceived, carolReceived, daveReceived *event.Payload
+	var cAlice, cBob, cCarol, cDave chan *event.Payload
 	done := make(chan bool)
 	go func() {
-		aliceReceived = receivePayload(alice)
-		bobReceived = receivePayload(bob)
-		carolReceived = receivePayload(carol)
-		daveReceived = receivePayload(dave)
+
+		cAlice = receivePayload(alice)
+		cBob = receivePayload(bob)
+		cCarol = receivePayload(carol)
+		cDave = receivePayload(dave)
 
 		done <- true
 	}()
 	e.Emit("a", event.Voter, event.Enabled, "payload")
 	<-done
-	assert.NotNil(t, aliceReceived)
-	assert.NotNil(t, bobReceived)
-	assert.Nil(t, carolReceived)
-	assert.Nil(t, daveReceived)
+	assert.NotNil(t, <-cAlice)
+	assert.NotNil(t, <-cBob)
+	assert.Nil(t, <-cCarol)
+	assert.Nil(t, <-cDave)
 }
 
 func TestEmit_Payload(t *testing.T) {
@@ -75,7 +76,7 @@ func TestEmit_Payload(t *testing.T) {
 
 	go e.Emit("id", event.Voter, want.Kind, want.Data)
 
-	if got := receivePayload(c); assert.NotNil(t, got) {
+	if got := <-receivePayload(c); assert.NotNil(t, got) {
 		assert.Exactly(t, got, want)
 	}
 }
@@ -86,15 +87,17 @@ func mustSubscribe(t *testing.T, e *event.Event, sessionID string, r event.Role,
 	return res
 }
 
-func receivePayload(c chan *event.Payload) *event.Payload {
-	done := make(chan *event.Payload)
+func receivePayload(c chan *event.Payload) chan *event.Payload {
+	res := make(chan *event.Payload)
 	go func() {
 		select {
 		case got := <-c:
-			done <- got
-		case <-time.After(1 * time.Second):
-			done <- nil
+			res <- got
+		case <-time.After(100 * time.Millisecond):
+			res <- nil
+			close(res)
+			return
 		}
 	}()
-	return <-done
+	return res
 }
