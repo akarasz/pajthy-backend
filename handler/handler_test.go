@@ -1,17 +1,16 @@
 package handler_test
 
 import (
-	"encoding/json"
 	"io"
 	"net/http"
 	"net/http/httptest"
-	"reflect"
 	"strings"
-	"sync"
 	"testing"
 	"time"
 
 	"github.com/gorilla/mux"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/akarasz/pajthy-backend/domain"
 	"github.com/akarasz/pajthy-backend/event"
@@ -26,22 +25,18 @@ func TestCreateSession(t *testing.T) {
 	rr := newRequest(t, r, "POST", "/", `["one", "two"]`)
 
 	// returns created
-	if got, want := rr.Code, http.StatusCreated; got != want {
-		t.Errorf("wrong return code. got %v want %v", got, want)
-	}
+	assert.Exactly(t, http.StatusCreated, rr.Code)
 
 	// id in location header where the session is saved in the store
 	location, exists := rr.HeaderMap["Location"]
 	if !exists || len(location) != 1 {
 		t.Fatalf("invalid location header: %v", location)
 	}
-	got, err := s.LockAndLoad(strings.TrimLeft(location[0], "/"))
-	if err != nil {
-		t.Errorf("loading from store failed: %v", err)
-	}
-	want := sessionWithChoices("one", "two")
-	if !reflect.DeepEqual(got, want) {
-		t.Errorf("wrong session in store. got %v want %v", got, want)
+
+	if assert.Contains(t, rr.HeaderMap, "Location") && assert.Len(t, rr.HeaderMap["Location"], 1) {
+		got, err := s.LockAndLoad(strings.TrimLeft(rr.HeaderMap["Location"][0], "/"))
+		assert.NoError(t, err)
+		assert.Exactly(t, sessionWithChoices("one", "two"), got)
 	}
 }
 
@@ -50,33 +45,22 @@ func TestChoices(t *testing.T) {
 	r := handler.NewRouter(s, nil)
 
 	// requesting a nonexistent one return 404
-	rr := newRequest(t, r, "GET", "/id", nil)
-
-	if got, want := rr.Code, http.StatusNotFound; got != want {
-		t.Errorf("wrong return code for not-existing id. got %v want %v", got, want)
-	}
+	r1 := newRequest(t, r, "GET", "/id", nil)
+	assert.Exactly(t, http.StatusNotFound, r1.Code)
 
 	// successful request
 	insertToStore(t, s, "id", sessionWithChoices("alice", "bob", "carol"))
 
-	rr = newRequest(t, r, "GET", "/id", nil)
-
-	if got, want := rr.Code, http.StatusOK; got != want {
-		t.Errorf("wrong response code. got %v want %v", got, want)
-	}
-	want := handler.ChoicesResponse{
-		Choices: []string{"alice", "bob", "carol"},
-		Open: false,
-	}
-	var got handler.ChoicesResponse
-	json.Unmarshal(rr.Body.Bytes(), &got)
-	if !reflect.DeepEqual(got, want) {
-		t.Errorf("wrong response. got %v want %v", got, want)
-	}
+	r2 := newRequest(t, r, "GET", "/id", nil)
+	assert.Exactly(t, http.StatusOK, r2.Code)
+	assert.JSONEq(t, `{
+			"Choices": ["alice", "bob", "carol"],
+			"Open": false
+		}`,
+		r2.Body.String())
 }
 
 func TestVote(t *testing.T) {
-	// requesting with invalid body should return 400
 	// requesting nonexisting session should return 404
 	// voting in a closed session returns 400
 	// voting as a nonparticipant return 400
@@ -93,30 +77,20 @@ func TestGetSession(t *testing.T) {
 	r := handler.NewRouter(s, nil)
 
 	// returns 404 when no id is in store
-	rr := newRequest(t, r, "GET", "/abcde/control", nil)
-	if got, want := rr.Code, http.StatusNotFound; got != want {
-		t.Errorf("wrong response code for not-existing id. got %v want %v", got, want)
-	}
+	r1 := newRequest(t, r, "GET", "/abcde/control", nil)
+	assert.Exactly(t, http.StatusNotFound, r1.Code)
 
 	// successful request
 	insertToStore(t, s, "abcde", sessionWithChoices("yes", "no"))
 
-	rr = newRequest(t, r, "GET", "/abcde/control", nil)
-
-	if got, want := rr.Code, http.StatusOK; got != want {
-		t.Errorf("wrong response code. got %v want %v", got, want)
-	}
-	want := domain.Session{
-		Choices: []string{"yes", "no"},
-		Participants: []string{},
-		Votes: map[string]string{},
-		Open: false,
-	}
-	var got domain.Session
-	json.Unmarshal(rr.Body.Bytes(), &got)
-	if !reflect.DeepEqual(got, want) {
-		t.Errorf("wrong response. got %v want %v", got, want)
-	}
+	r2 := newRequest(t, r, "GET", "/abcde/control", nil)
+	assert.Exactly(t, http.StatusOK, r2.Code)
+	assert.JSONEq(t, `{
+			"Choices": ["yes", "no"],
+			"Participants": [],
+			"Votes": {},
+			"Open": false
+		}`, r2.Body.String())
 }
 
 func TestStartVote(t *testing.T) {
@@ -125,42 +99,30 @@ func TestStartVote(t *testing.T) {
 	r := handler.NewRouter(s, e)
 
 	// returns 404 when no id is in store
-	rr := newRequest(t, r, "PATCH", "/bcdef/control/start", nil)
-	if got, want := rr.Code, http.StatusNotFound; got != want {
-		t.Errorf("wrong response code for not-existing id. got %v want %v", got, want)
-	}
+	r1 := newRequest(t, r, "PATCH", "/bcdef/control/start", nil)
+	assert.Exactly(t, http.StatusNotFound, r1.Code)
 
 	// successful request
 	insertToStore(t, s, "bcdef", &domain.Session{
-		Choices: []string{ "dog", "cat" },
-		Open: false,
-		Votes: map[string]string{ "Alice": "dog" },
-		Participants: []string{ "Alice" },
+		Choices:      []string{"dog", "cat"},
+		Open:         false,
+		Votes:        map[string]string{"Alice": "dog"},
+		Participants: []string{"Alice"},
 	})
-	voterEvent := make(chan *event.Payload)
-	controllerEvent := make(chan *event.Payload)
-	wg := &sync.WaitGroup{}
-	wg.Add(2)
-	go waitForEvent(t, e, wg, "bcdef", event.Voter, voterEvent)
-	go waitForEvent(t, e, wg, "bcdef", event.Controller, controllerEvent)
-	wg.Wait()
 
-	rr = newRequest(t, r, "PATCH", "/bcdef/control/start", nil)
-	if got, want := rr.Code, http.StatusAccepted; got != want {
-		t.Errorf("wrong response code. got %v want %v", got, want)
-	}
+	controllerEvent, voterEvent := subscribe(t, e, "bcdef", 1, 1)
+
+	r2 := newRequest(t, r, "PATCH", "/bcdef/control/start", nil)
+	assert.Exactly(t, http.StatusAccepted, r2.Code)
+
 	sess := readFromStore(t, s, "bcdef")
-	if got, want := sess.Open, true; got != want {
-		t.Errorf("wrong Open. got %v want %v", got, want)
+	assert.True(t, sess.Open)
+	assert.Empty(t, sess.Votes)
+	if got := <-voterEvent; assert.NotNil(t, got) {
+		assert.Exactly(t, event.Enabled, got.Kind)
 	}
-	if got, want := len(sess.Votes), 0; got != want {
-		t.Errorf("wrong length of Votes. got %v want %v", got, want)
-	}
-	if got := <-voterEvent; got == nil || got.Kind != event.Enabled {
-		t.Errorf("wrong payload for voters: %v", got)
-	}
-	if got := <-controllerEvent; got == nil || got.Kind != event.Enabled {
-		t.Errorf("wrong payload for controllers: %v", got)
+	if got := <-controllerEvent; assert.NotNil(t, got) {
+		assert.Exactly(t, event.Enabled, got.Kind)
 	}
 }
 
@@ -170,39 +132,29 @@ func TestStopVote(t *testing.T) {
 	r := handler.NewRouter(s, e)
 
 	// returns 404 when no id is in store
-	rr := newRequest(t, r, "PATCH", "/bcdef/control/stop", nil)
-	if got, want := rr.Code, http.StatusNotFound; got != want {
-		t.Errorf("wrong response code for not-existing id. got %v want %v", got, want)
-	}
+	r1 := newRequest(t, r, "PATCH", "/bcdef/control/stop", nil)
+	assert.Exactly(t, http.StatusNotFound, r1.Code)
 
 	// successful request
 	insertToStore(t, s, "bcdef", &domain.Session{
-		Choices: []string{ "dog", "cat" },
-		Open: true,
-		Votes: map[string]string{ "Alice": "dog" },
-		Participants: []string{ "Alice" },
+		Choices:      []string{"dog", "cat"},
+		Open:         true,
+		Votes:        map[string]string{"Alice": "dog"},
+		Participants: []string{"Alice"},
 	})
-	voterEvent := make(chan *event.Payload)
-	controllerEvent := make(chan *event.Payload)
-	wg := &sync.WaitGroup{}
-	wg.Add(2)
-	go waitForEvent(t, e, wg, "bcdef", event.Voter, voterEvent)
-	go waitForEvent(t, e, wg, "bcdef", event.Controller, controllerEvent)
-	wg.Wait()
 
-	rr = newRequest(t, r, "PATCH", "/bcdef/control/stop", nil)
-	if got, want := rr.Code, http.StatusAccepted; got != want {
-		t.Errorf("wrong response code. got %v want %v", got, want)
-	}
+	controllerEvent, voterEvent := subscribe(t, e, "bcdef", 1, 1)
+
+	r2 := newRequest(t, r, "PATCH", "/bcdef/control/stop", nil)
+	assert.Exactly(t, http.StatusAccepted, r2.Code)
+
 	sess := readFromStore(t, s, "bcdef")
-	if got, want := sess.Open, false; got != want {
-		t.Errorf("wrong Open. got %v want %v", got, want)
+	assert.False(t, sess.Open)
+	if got := <-voterEvent; assert.NotNil(t, got) {
+		assert.Exactly(t, event.Disabled, got.Kind)
 	}
-	if got := <-voterEvent; got == nil || got.Kind != event.Disabled {
-		t.Errorf("wrong payload for voters: %v", got)
-	}
-	if got := <-controllerEvent; got == nil || got.Kind != event.Disabled {
-		t.Errorf("wrong payload for controllers: %v", got)
+	if got := <-controllerEvent; assert.NotNil(t, got) {
+		assert.Exactly(t, event.Disabled, got.Kind)
 	}
 }
 
@@ -212,46 +164,33 @@ func TestResetVote(t *testing.T) {
 	r := handler.NewRouter(s, e)
 
 	// returns 404 when no id is in store
-	rr := newRequest(t, r, "PATCH", "/bcdef/control/reset", nil)
-	if got, want := rr.Code, http.StatusNotFound; got != want {
-		t.Errorf("wrong response code for not-existing id. got %v want %v", got, want)
-	}
+	r1 := newRequest(t, r, "PATCH", "/bcdef/control/reset", nil)
+	assert.Exactly(t, http.StatusNotFound, r1.Code)
 
 	// successful request
 	insertToStore(t, s, "bcdef", &domain.Session{
-		Choices: []string{ "dog", "cat" },
-		Open: true,
-		Votes: map[string]string{ "Alice": "dog" },
-		Participants: []string{ "Alice" },
+		Choices:      []string{"dog", "cat"},
+		Open:         true,
+		Votes:        map[string]string{"Alice": "dog"},
+		Participants: []string{"Alice"},
 	})
-	voterEvent := make(chan *event.Payload)
-	controllerEvent := make(chan *event.Payload, 2)
-	wg := &sync.WaitGroup{}
-	wg.Add(2)
-	go waitForEvent(t, e, wg, "bcdef", event.Voter, voterEvent)
-	go waitForEvent(t, e, wg, "bcdef", event.Controller, controllerEvent)
-	wg.Wait()
+	controllerEvent, voterEvent := subscribe(t, e, "bcdef", 1, 2)
 
-	rr = newRequest(t, r, "PATCH", "/bcdef/control/reset", nil)
-	if got, want := rr.Code, http.StatusAccepted; got != want {
-		t.Errorf("wrong response code. got %v want %v", got, want)
-	}
+	r2 := newRequest(t, r, "PATCH", "/bcdef/control/reset", nil)
+	assert.Exactly(t, http.StatusAccepted, r2.Code)
+
 	sess := readFromStore(t, s, "bcdef")
-	if got, want := sess.Open, false; got != want {
-		t.Errorf("wrong Open. got %v want %v", got, want)
+	assert.False(t, sess.Open)
+	assert.Empty(t, sess.Votes)
+	if got := <-voterEvent; assert.NotNil(t, got) {
+		assert.Exactly(t, event.Reset, got.Kind)
 	}
-	if got, want := len(sess.Votes), 0; got != want {
-		t.Errorf("wrong length of Votes. got %v want %v", got, want)
+	if got := <-controllerEvent; assert.NotNil(t, got) {
+		assert.Exactly(t, event.Reset, got.Kind)
 	}
-	if got := <-voterEvent; got == nil || got.Kind != event.Reset {
-		t.Errorf("wrong payload for voters when reset: %v", got)
-	}
-	if got := <-controllerEvent; got == nil || got.Kind != event.Reset {
-		t.Errorf("wrong payload for controllers when reset: %v", got)
-	}
-	if got := <-controllerEvent; got == nil || got.Kind != event.Vote ||
-			len(got.Data.(*handler.VotesChangedData).Votes) > 0 {
-		t.Errorf("wrong payload for controllers when Vote: %v", got)
+	if got := <-controllerEvent; assert.NotNil(t, got) {
+		assert.Exactly(t, event.Vote, got.Kind)
+		assert.Empty(t, got.Data.(*handler.VotesChangedData).Votes)
 	}
 }
 
@@ -261,41 +200,26 @@ func TestKickParticipant(t *testing.T) {
 	r := handler.NewRouter(s, e)
 
 	// returns 404 when no id is in store
-	rr := newRequest(t, r, "PATCH", "/bcdef/control/kick", `"Bob"`)
-	if got, want := rr.Code, http.StatusNotFound; got != want {
-		t.Errorf("wrong response code for not-existing id. got %v want %v", got, want)
-	}
+	r1 := newRequest(t, r, "PATCH", "/bcdef/control/kick", `"Bob"`)
+	assert.Exactly(t, http.StatusNotFound, r1.Code)
 
 	// successful request
 	insertToStore(t, s, "bcdef", &domain.Session{
-		Choices: []string{ "square", "circle", "triangle" },
-		Open: false,
-		Votes: map[string]string{},
-		Participants: []string{ "Alice", "Bob" },
+		Choices:      []string{"square", "circle", "triangle"},
+		Open:         false,
+		Votes:        map[string]string{},
+		Participants: []string{"Alice", "Bob"},
 	})
-	controllerEvent := make(chan *event.Payload)
-	wg := &sync.WaitGroup{}
-	wg.Add(1)
-	go waitForEvent(t, e, wg, "bcdef", event.Controller, controllerEvent)
-	wg.Wait()
+	controllerEvent, _ := subscribe(t, e, "bcdef", 1, 0)
 
-	rr = newRequest(t, r, "PATCH", "/bcdef/control/kick", `"Bob"`)
-	if got, want := rr.Code, http.StatusNoContent; got != want {
-		t.Errorf("wrong response code. got %v want %v", got, want)
-	}
+	r2 := newRequest(t, r, "PATCH", "/bcdef/control/kick", `"Bob"`)
+	assert.Exactly(t, http.StatusNoContent, r2.Code)
+
 	sess := readFromStore(t, s, "bcdef")
-	if got, want := sess.Participants, []string{"Alice"}; !reflect.DeepEqual(got, want) {
-		t.Errorf("wrong Participants. got %v want %v", got, want)
-	}
-	got := <- controllerEvent
-	if got == nil {
-		t.Fatalf("no event received")
-	}
-	want := &handler.ParticipantsChangedData{
-		Participants: []string{ "Alice" },
-	}
-	if got.Kind != event.ParticipantsChange || !reflect.DeepEqual(got.Data, want) {
-		t.Errorf("wrong payload in event. got %v want %v", got, want)
+	assert.NotContains(t, sess.Participants, "Bob")
+	if got := <-controllerEvent; assert.NotNil(t, got) {
+		assert.Exactly(t, event.ParticipantsChange, got.Kind)
+		assert.Exactly(t, sess.Participants, got.Data.(*handler.ParticipantsChangedData).Participants)
 	}
 }
 
@@ -305,50 +229,32 @@ func TestJoin(t *testing.T) {
 	r := handler.NewRouter(s, e)
 
 	// requesting nonexisting session should return 404
-	rr := newRequest(t, r, "PUT", "/ididi/join", `"Alice"`)
-	if got, want := rr.Code, http.StatusNotFound; got != want {
-		t.Errorf("wrong response code for not-existing id. got %v want %v", got, want)
-	}
+	r1 := newRequest(t, r, "PUT", "/ididi/join", `"Alice"`)
+	assert.Exactly(t, http.StatusNotFound, r1.Code)
 
 	// successful request
-	controllerEvent := make(chan *event.Payload)
-	wg := &sync.WaitGroup{}
-	wg.Add(1)
-
 	insertToStore(t, s, "ididi", &domain.Session{
-		Choices: []string{ "dog", "cat" },
-		Open: false,
-		Votes: map[string]string{},
+		Choices:      []string{"dog", "cat"},
+		Open:         false,
+		Votes:        map[string]string{},
 		Participants: []string{},
 	})
+	controllerEvent, _ := subscribe(t, e, "ididi", 1, 0)
 
-	go waitForEvent(t, e, wg, "ididi", event.Controller, controllerEvent)
-	wg.Wait()
+	r2 := newRequest(t, r, "PUT", "/ididi/join", `"Alice"`)
+	assert.Exactly(t, http.StatusCreated, r2.Code)
 
-	rr = newRequest(t, r, "PUT", "/ididi/join", `"Alice"`)
-	if got, want := rr.Code, http.StatusCreated; got != want {
-		t.Errorf("wrong response code. got %v want %v", got, want)
-	}
 	sess := readFromStore(t, s, "ididi")
-	if got, want := sess.Participants, []string{ "Alice"}; !reflect.DeepEqual(got, want) {
-		t.Errorf("wrong Participants. got %v want %v", got, want)
-	}
-	got := <- controllerEvent
-	if got == nil {
-		t.Fatalf("no event received")
-	}
-	want := &handler.ParticipantsChangedData{
-		Participants: []string{ "Alice" },
-	}
-	if got.Kind != event.ParticipantsChange || !reflect.DeepEqual(got.Data, want) {
-		t.Errorf("wrong payload in event. got %v want %v", got, want)
+	assert.Contains(t, sess.Participants, "Alice")
+
+	if got := <-controllerEvent; assert.NotNil(t, got) {
+		assert.Exactly(t, event.ParticipantsChange, got.Kind)
+		assert.Exactly(t, sess.Participants, got.Data.(*handler.ParticipantsChangedData).Participants)
 	}
 
 	// joining with an existing name returns 409
-	rr = newRequest(t, r, "PUT", "/ididi/join", `"Alice"`)
-	if got, want := rr.Code, http.StatusConflict; got != want {
-		t.Errorf("wrong response code when joining as an existing user. got %v want %v", got, want)
-	}
+	r3 := newRequest(t, r, "PUT", "/ididi/join", `"Alice"`)
+	assert.Exactly(t, http.StatusConflict, r3.Code)
 }
 
 func sessionWithChoices(choices ...string) *domain.Session {
@@ -358,17 +264,13 @@ func sessionWithChoices(choices ...string) *domain.Session {
 }
 
 func insertToStore(t *testing.T, s *store.Store, id string, session *domain.Session) {
-	if err := s.Create(id, session); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, s.Create(id, session))
 }
 
 func readFromStore(t *testing.T, s *store.Store, id string) *domain.Session {
 	res, err := s.LockAndLoad(id)
 	defer s.Unlock(id)
-	if err != nil {
-		t.Fatal(err)
-	}
+	assert.NoError(t, err)
 	return res
 }
 
@@ -384,9 +286,7 @@ func newRequest(t *testing.T, r *mux.Router, method string, url string, body int
 	}
 
 	req, err := http.NewRequest(method, url, reqBody)
-	if err != nil {
-		t.Fatal(err)
-	}
+	assert.NoError(t, err)
 
 	rr := httptest.NewRecorder()
 	r.ServeHTTP(rr, req)
@@ -394,19 +294,43 @@ func newRequest(t *testing.T, r *mux.Router, method string, url string, body int
 	return rr
 }
 
-func waitForEvent(t *testing.T, e *event.Event, wg *sync.WaitGroup, id string, r event.Role, result chan *event.Payload) {
+func waitForEvent(t *testing.T, e *event.Event, done chan bool, id string, r event.Role, result chan *event.Payload) {
 	c, err := e.Subscribe(id, r, id)
-	if err != nil {
-		t.Fatal(err)
-	}
-	wg.Done()
+	assert.NoError(t, err)
+
+	done <- true
+
 	for {
 		select {
 		case got := <-c:
 			result <- got
-		case <- time.After(1 * time.Second):
+		case <-time.After(1 * time.Second):
 			result <- nil
 			return
 		}
 	}
+}
+
+func subscribe(t *testing.T, e *event.Event, id string, expectedControllerEvents, expectedVoterEvents int) (chan *event.Payload, chan *event.Payload) {
+	controllerEvent := make(chan *event.Payload, expectedControllerEvents)
+	voterEvent := make(chan *event.Payload, expectedVoterEvents)
+
+	done := make(chan bool, 2)
+
+	if expectedVoterEvents > 0 {
+		go waitForEvent(t, e, done, id, event.Voter, voterEvent)
+	} else {
+		done <- true
+	}
+
+	if expectedControllerEvents > 0 {
+		go waitForEvent(t, e, done, id, event.Controller, controllerEvent)
+	} else {
+		done <- true
+	}
+
+	<-done
+	<-done
+
+	return controllerEvent, voterEvent
 }
