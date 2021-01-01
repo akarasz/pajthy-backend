@@ -66,7 +66,7 @@ func (h *Handler) vote(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if !hasVoter {
-		showError(w, http.StatusBadRequest, "invalid voter", nil)
+		showError(w, http.StatusBadRequest, "not a valid participant", nil)
 		return
 	}
 
@@ -78,7 +78,7 @@ func (h *Handler) vote(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if !hasChoice {
-		showError(w, http.StatusBadRequest, "invalid choice", nil)
+		showError(w, http.StatusBadRequest, "not a valid choice", nil)
 		return
 	}
 

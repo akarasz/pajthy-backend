@@ -10,7 +10,6 @@ import (
 var (
 	ErrAlreadyExists = errors.New("session already exists")
 	ErrNotExists     = errors.New("session not exists")
-	ErrNotLocked     = errors.New("key is not locked")
 )
 
 type sessionWithLock struct {
@@ -80,10 +79,6 @@ func (s *Store) Update(id string, sess *domain.Session) error {
 		return ErrNotExists
 	}
 
-	if !swl.locked {
-		return ErrNotLocked
-	}
-
 	swl.session = sess
 
 	return nil
@@ -93,10 +88,6 @@ func (s *Store) Load(id string) (*domain.Session, error) {
 	swl, ok := s.repo[id]
 	if !ok {
 		return nil, ErrNotExists
-	}
-
-	if !swl.locked {
-		return nil, ErrNotLocked
 	}
 
 	return swl.session, nil

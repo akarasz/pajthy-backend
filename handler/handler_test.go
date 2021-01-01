@@ -34,8 +34,7 @@ func TestCreateSession(t *testing.T) {
 	}
 
 	if assert.Contains(t, rr.HeaderMap, "Location") && assert.Len(t, rr.HeaderMap["Location"], 1) {
-		got, err := s.LockAndLoad(strings.TrimLeft(rr.HeaderMap["Location"][0], "/"))
-		assert.NoError(t, err)
+		got := readFromStore(t, s, strings.TrimLeft(rr.HeaderMap["Location"][0], "/"))
 		assert.Exactly(t, sessionWithChoices("one", "two"), got)
 	}
 }
@@ -61,15 +60,83 @@ func TestChoices(t *testing.T) {
 }
 
 func TestVote(t *testing.T) {
+	s := store.New()
+	e := event.New()
+	r := handler.NewRouter(s, e)
+
+	closed := sessionWithChoices("red", "blue")
+	insertToStore(t, s, "closed", closed)
+
+	open := sessionWithChoices("red", "blue")
+	open.Participants = []string{"Alice", "Bob"}
+	open.Open = true
+	insertToStore(t, s, "open", open)
+
 	// requesting nonexisting session should return 404
+	r1 := newRequest(t, r, "PUT", "/notexists", `{"Choice": "red", "Participant": "Alice"}`)
+	assert.Exactly(t, http.StatusNotFound, r1.Code)
+
 	// voting in a closed session returns 400
+	r2 := newRequest(t, r, "PUT", "/closed", `{"Choice": "red", "Participant": "Alice"}`)
+	assert.Exactly(t, http.StatusBadRequest, r2.Code)
+	assert.Exactly(t, "session is closed\n", r2.Body.String())
+
 	// voting as a nonparticipant return 400
+	r3 := newRequest(t, r, "PUT", "/open", `{"Choice": "red", "Participant": "Carol"}`)
+	assert.Exactly(t, http.StatusBadRequest, r3.Code)
+	assert.Exactly(t, "not a valid participant\n", r3.Body.String())
+
 	// voting to a nonexisting option returns 400
-	// successful vote returns 201
-	// successful vote saves the vote
-	// successful vote emits a vote event to controllers
-	// successful vote closes the vote if all votes are in
-	// successful vote emits a disabled event if all votes are in to controllers and votes
+	r4 := newRequest(t, r, "PUT", "/open", `{"Choice": "green", "Participant": "Alice"}`)
+	assert.Exactly(t, http.StatusBadRequest, r4.Code)
+	assert.Exactly(t, "not a valid choice\n", r4.Body.String())
+
+	cEvents, vEvents := subscribe(t, e, "open", 3, 1)
+
+	// successful vote, waiting for more
+	r5 := newRequest(t, r, "PUT", "/open", `{"Choice": "red", "Participant": "Alice"}`)
+	assert.Exactly(t, http.StatusAccepted, r5.Code)
+
+	if current := readFromStore(t, s, "open"); assert.Contains(t, current.Votes, "Alice") {
+		assert.Exactly(t, "red", current.Votes["Alice"])
+		assert.True(t, current.Open)
+	}
+
+	if got := <-cEvents; assert.NotNil(t, got) {
+		assert.Exactly(t, event.Vote, got.Kind)
+		assert.Exactly(t,
+			&handler.VotesChangedData{
+				Votes: map[string]string{"Alice": "red"},
+			},
+			got.Data)
+	}
+
+	// successful vote, last one
+	r6 := newRequest(t, r, "PUT", "/open", `{"Choice": "blue", "Participant": "Bob"}`)
+	assert.Exactly(t, http.StatusAccepted, r6.Code)
+
+	if current := readFromStore(t, s, "open"); assert.Contains(t, current.Votes, "Bob") {
+		assert.Exactly(t, "blue", current.Votes["Bob"])
+		assert.False(t, current.Open)
+	}
+
+	if got := <-vEvents; assert.NotNil(t, got) {
+		assert.Exactly(t, event.Disabled, got.Kind)
+	}
+	if got := <-cEvents; assert.NotNil(t, got) {
+		assert.Exactly(t, event.Disabled, got.Kind)
+	}
+	if got := <-cEvents; assert.NotNil(t, got) {
+		assert.Exactly(t, event.Vote, got.Kind)
+		assert.Exactly(t,
+			&handler.VotesChangedData{
+				Votes: map[string]string{
+					"Alice": "red",
+					"Bob":   "blue",
+				},
+			},
+			got.Data)
+	}
 }
 
 func TestGetSession(t *testing.T) {
@@ -268,8 +335,7 @@ func insertToStore(t *testing.T, s *store.Store, id string, session *domain.Sess
 }
 
 func readFromStore(t *testing.T, s *store.Store, id string) *domain.Session {
-	res, err := s.LockAndLoad(id)
-	defer s.Unlock(id)
+	res, err := s.Load(id)
 	assert.NoError(t, err)
 	return res
 }
