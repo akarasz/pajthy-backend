@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
+	"github.com/gorilla/websocket"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -290,6 +291,27 @@ func TestKickParticipant(t *testing.T) {
 	}
 }
 
+func TestControlWS(t *testing.T) {
+	s := store.New()
+	e := event.New()
+	server := httptest.NewServer(handler.NewRouter(s, e))
+	defer server.Close()
+	baseUrl := "ws" + strings.TrimPrefix(server.URL, "http")
+
+	insertToStore(t, s, "aaaaa", sessionWithChoices("morning", "evening"))
+
+	ws, _, err := websocket.DefaultDialer.Dial(baseUrl+"/aaaaa/control/ws", nil)
+	require.NoError(t, err)
+	defer ws.Close()
+
+	e.Emit("aaaaa", event.Controller, event.Enabled, nil)
+	e.Emit("aaaaa", event.Voter, event.Disabled, nil)
+
+	_, p, err := ws.ReadMessage()
+	assert.NoError(t, err)
+	assert.JSONEq(t, `{"Kind": "enabled", "Data": null}`, string(p))
+}
+
 func TestJoin(t *testing.T) {
 	s := store.New()
 	e := event.New()
@@ -322,6 +344,27 @@ func TestJoin(t *testing.T) {
 	// joining with an existing name returns 409
 	r3 := newRequest(t, r, "PUT", "/ididi/join", `"Alice"`)
 	assert.Exactly(t, http.StatusConflict, r3.Code)
+}
+
+func TestWS(t *testing.T) {
+	s := store.New()
+	e := event.New()
+	server := httptest.NewServer(handler.NewRouter(s, e))
+	defer server.Close()
+	baseUrl := "ws" + strings.TrimPrefix(server.URL, "http")
+
+	insertToStore(t, s, "aaaaa", sessionWithChoices("morning", "evening"))
+
+	ws, _, err := websocket.DefaultDialer.Dial(baseUrl+"/aaaaa/ws", nil)
+	require.NoError(t, err)
+	defer ws.Close()
+
+	e.Emit("aaaaa", event.Controller, event.Enabled, nil)
+	e.Emit("aaaaa", event.Voter, event.Disabled, nil)
+
+	_, p, err := ws.ReadMessage()
+	assert.NoError(t, err)
+	assert.JSONEq(t, `{"Kind": "disabled", "Data": null}`, string(p))
 }
 
 func sessionWithChoices(choices ...string) *domain.Session {
