@@ -300,12 +300,55 @@ func TestKickParticipant(t *testing.T) {
 }
 
 func TestJoin(t *testing.T) {
-	// requesting with invalid body should return 400
+	s := store.New()
+	e := event.New()
+	r := handler.NewRouter(s, e)
+
 	// requesting nonexisting session should return 404
+	rr := newRequest(t, r, "PUT", "/ididi/join", `"Alice"`)
+	if got, want := rr.Code, http.StatusNotFound; got != want {
+		t.Errorf("wrong response code for not-existing id. got %v want %v", got, want)
+	}
+
+	// successful request
+	controllerEvent := make(chan *event.Payload)
+	wg := &sync.WaitGroup{}
+	wg.Add(1)
+
+	insertToStore(t, s, "ididi", &domain.Session{
+		Choices: []string{ "dog", "cat" },
+		Open: false,
+		Votes: map[string]string{},
+		Participants: []string{},
+	})
+
+	go waitForEvent(t, e, wg, "ididi", event.Controller, controllerEvent)
+	wg.Wait()
+
+	rr = newRequest(t, r, "PUT", "/ididi/join", `"Alice"`)
+	if got, want := rr.Code, http.StatusCreated; got != want {
+		t.Errorf("wrong response code. got %v want %v", got, want)
+	}
+	sess := readFromStore(t, s, "ididi")
+	if got, want := sess.Participants, []string{ "Alice"}; !reflect.DeepEqual(got, want) {
+		t.Errorf("wrong Participants. got %v want %v", got, want)
+	}
+	got := <- controllerEvent
+	if got == nil {
+		t.Fatalf("no event received")
+	}
+	want := &handler.ParticipantsChangedData{
+		Participants: []string{ "Alice" },
+	}
+	if got.Kind != event.ParticipantsChange || !reflect.DeepEqual(got.Data, want) {
+		t.Errorf("wrong payload in event. got %v want %v", got, want)
+	}
+
 	// joining with an existing name returns 409
-	// successful vote returns 201
-	// successful join adds the participant to the session
-	// successful join emits a join event
+	rr = newRequest(t, r, "PUT", "/ididi/join", `"Alice"`)
+	if got, want := rr.Code, http.StatusConflict; got != want {
+		t.Errorf("wrong response code when joining as an existing user. got %v want %v", got, want)
+	}
 }
 
 func sessionWithChoices(choices ...string) *domain.Session {
