@@ -1,9 +1,10 @@
 package event_test
 
 import (
-	"reflect"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
 
 	"github.com/akarasz/pajthy-backend/domain"
 	"github.com/akarasz/pajthy-backend/event"
@@ -14,13 +15,11 @@ func TestSubscribe(t *testing.T) {
 
 	// subscribing returns a channel where events can be emitted
 	c, err := e.Subscribe("id", event.Voter, "wsID")
-	if err != nil {
-		t.Fatalf("unexpected error during subscribe: %v", err)
-	}
+	assert.NoError(t, err)
+
 	go e.Emit("id", event.Voter, event.Enabled, "payload")
-	if got := receivePayload(c); got == nil {
-		t.Errorf("no event received")
-	}
+
+	assert.NotNil(t, receivePayload(c), "no event received")
 }
 
 func TestUnsubscribe(t *testing.T) {
@@ -28,18 +27,15 @@ func TestUnsubscribe(t *testing.T) {
 
 	// after unsubscribe emitted events are not showing on channel
 	c := mustSubscribe(t, e, "id", event.Voter, "wsID")
-	if err := e.Unsubscribe("id", "wsID"); err != nil {
-		t.Fatalf("unexpected error during unsubscribe: %v", err)
-	}
+	err := e.Unsubscribe("id", "wsID")
+	assert.NoError(t, err)
+
 	go e.Emit("id", event.Voter, event.Enabled, "payload")
-	if got := receivePayload(c); got != nil {
-		t.Errorf("event received after unsubscribe")
-	}
+	assert.Nil(t, receivePayload(c), "event received after unsubscribe")
 
 	// unsubscribing with uknown key returns an error
-	if err := e.Unsubscribe("id", "wsID"); err == nil {
-		t.Fatalf("no error returned when unsubscribing a non-existent ws")
-	}
+	err = e.Unsubscribe("id", "wsID")
+	assert.Error(t, err)
 }
 
 func TestEmit_SendingTo(t *testing.T) {
@@ -62,44 +58,31 @@ func TestEmit_SendingTo(t *testing.T) {
 	}()
 	e.Emit("a", event.Voter, event.Enabled, "payload")
 	<-done
-	if aliceReceived == nil {
-		t.Errorf("alice should have received an event")
-	}
-	if bobReceived == nil {
-		t.Errorf("bob should have received an event")
-	}
-	if carolReceived != nil {
-		t.Errorf("carol should have not received an event")
-	}
-	if daveReceived != nil {
-		t.Errorf("dave should have not received an event")
-	}
+	assert.NotNil(t, aliceReceived)
+	assert.NotNil(t, bobReceived)
+	assert.Nil(t, carolReceived)
+	assert.Nil(t, daveReceived)
 }
 
 func TestEmit_Payload(t *testing.T) {
 	e := event.New()
 
 	c := mustSubscribe(t, e, "id", event.Voter, "wsID")
-	wantKind := event.Vote
-	wantData := &domain.Vote{
+	want := event.NewPayload(event.Vote, &domain.Vote{
 		Participant: "Alice",
 		Choice:      "the right one",
-	}
-	go e.Emit("id", event.Voter, wantKind, wantData)
-	got := receivePayload(c)
-	if got == nil {
-		t.Fatalf("no event received")
-	}
-	if want := event.NewPayload(wantKind, wantData); !reflect.DeepEqual(got, want) {
-		t.Fatalf("wrong payload. got %v want %v", got, want)
+	})
+
+	go e.Emit("id", event.Voter, want.Kind, want.Data)
+
+	if got := receivePayload(c); assert.NotNil(t, got) {
+		assert.Exactly(t, got, want)
 	}
 }
 
 func mustSubscribe(t *testing.T, e *event.Event, sessionID string, r event.Role, ws interface{}) chan *event.Payload {
 	res, err := e.Subscribe(sessionID, r, ws)
-	if err != nil {
-		t.Fatalf("unexpected error during subscribe: %v", err)
-	}
+	assert.NoError(t, err)
 	return res
 }
 
@@ -109,7 +92,7 @@ func receivePayload(c chan *event.Payload) *event.Payload {
 		select {
 		case got := <-c:
 			done <- got
-		case <-time.After(100 * time.Millisecond):
+		case <-time.After(1 * time.Second):
 			done <- nil
 		}
 	}()
