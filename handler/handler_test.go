@@ -8,7 +8,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gorilla/mux"
 	"github.com/gorilla/websocket"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -21,7 +20,7 @@ import (
 
 func TestCreateSession(t *testing.T) {
 	s := store.New()
-	r := handler.NewRouter(s, nil)
+	r := handler.New(s, nil)
 
 	rr := newRequest(t, r, "POST", "/", `["one", "two"]`)
 
@@ -42,7 +41,7 @@ func TestCreateSession(t *testing.T) {
 
 func TestChoices(t *testing.T) {
 	s := store.New()
-	r := handler.NewRouter(s, nil)
+	r := handler.New(s, nil)
 
 	// requesting a nonexistent one return 404
 	r1 := newRequest(t, r, "GET", "/id", nil)
@@ -63,7 +62,7 @@ func TestChoices(t *testing.T) {
 func TestVote(t *testing.T) {
 	s := store.New()
 	e := event.New()
-	r := handler.NewRouter(s, e)
+	r := handler.New(s, e)
 
 	closed := sessionWithChoices("red", "blue")
 	insertToStore(t, s, "closed", closed)
@@ -142,7 +141,7 @@ func TestVote(t *testing.T) {
 
 func TestGetSession(t *testing.T) {
 	s := store.New()
-	r := handler.NewRouter(s, nil)
+	r := handler.New(s, nil)
 
 	// returns 404 when no id is in store
 	r1 := newRequest(t, r, "GET", "/abcde/control", nil)
@@ -164,7 +163,7 @@ func TestGetSession(t *testing.T) {
 func TestStartVote(t *testing.T) {
 	s := store.New()
 	e := event.New()
-	r := handler.NewRouter(s, e)
+	r := handler.New(s, e)
 
 	// returns 404 when no id is in store
 	r1 := newRequest(t, r, "PATCH", "/bcdef/control/start", nil)
@@ -197,7 +196,7 @@ func TestStartVote(t *testing.T) {
 func TestStopVote(t *testing.T) {
 	s := store.New()
 	e := event.New()
-	r := handler.NewRouter(s, e)
+	r := handler.New(s, e)
 
 	// returns 404 when no id is in store
 	r1 := newRequest(t, r, "PATCH", "/bcdef/control/stop", nil)
@@ -229,7 +228,7 @@ func TestStopVote(t *testing.T) {
 func TestResetVote(t *testing.T) {
 	s := store.New()
 	e := event.New()
-	r := handler.NewRouter(s, e)
+	r := handler.New(s, e)
 
 	// returns 404 when no id is in store
 	r1 := newRequest(t, r, "PATCH", "/bcdef/control/reset", nil)
@@ -265,7 +264,7 @@ func TestResetVote(t *testing.T) {
 func TestKickParticipant(t *testing.T) {
 	s := store.New()
 	e := event.New()
-	r := handler.NewRouter(s, e)
+	r := handler.New(s, e)
 
 	// returns 404 when no id is in store
 	r1 := newRequest(t, r, "PATCH", "/bcdef/control/kick", `"Bob"`)
@@ -294,7 +293,7 @@ func TestKickParticipant(t *testing.T) {
 func TestControlWS(t *testing.T) {
 	s := store.New()
 	e := event.New()
-	server := httptest.NewServer(handler.NewRouter(s, e))
+	server := httptest.NewServer(handler.New(s, e))
 	defer server.Close()
 	baseUrl := "ws" + strings.TrimPrefix(server.URL, "http")
 
@@ -315,7 +314,7 @@ func TestControlWS(t *testing.T) {
 func TestJoin(t *testing.T) {
 	s := store.New()
 	e := event.New()
-	r := handler.NewRouter(s, e)
+	r := handler.New(s, e)
 
 	// requesting nonexisting session should return 404
 	r1 := newRequest(t, r, "PUT", "/ididi/join", `"Alice"`)
@@ -349,7 +348,7 @@ func TestJoin(t *testing.T) {
 func TestWS(t *testing.T) {
 	s := store.New()
 	e := event.New()
-	server := httptest.NewServer(handler.NewRouter(s, e))
+	server := httptest.NewServer(handler.New(s, e))
 	defer server.Close()
 	baseUrl := "ws" + strings.TrimPrefix(server.URL, "http")
 

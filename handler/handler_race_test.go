@@ -9,7 +9,6 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/gorilla/mux"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/akarasz/pajthy-backend/event"
@@ -20,7 +19,7 @@ import (
 func TestParallelActions(t *testing.T) {
 	s := store.New()
 	e := event.New()
-	r := handler.NewRouter(s, e)
+	r := handler.New(s, e)
 
 	wg := &sync.WaitGroup{}
 
@@ -69,7 +68,7 @@ func TestParallelActions(t *testing.T) {
 	}
 }
 
-func request(t *testing.T, h *mux.Router, method, url string, body interface{}) *httptest.ResponseRecorder {
+func request(t *testing.T, h http.Handler, method, url string, body interface{}) *httptest.ResponseRecorder {
 	res := httptest.NewRecorder()
 
 	var bodyReader io.Reader
