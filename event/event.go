@@ -37,7 +37,7 @@ func NewPayload(kind Type, data interface{}) *Payload {
 }
 
 type Event struct {
-	sync.Mutex
+	sync.RWMutex
 	sessions map[string]*session
 }
 
@@ -48,7 +48,7 @@ func New() *Event {
 }
 
 type session struct {
-	sync.Mutex
+	sync.RWMutex
 	voters      map[interface{}]chan *Payload
 	controllers map[interface{}]chan *Payload
 }
@@ -61,14 +61,15 @@ func newSession() *session {
 }
 
 func (e *Event) Emit(sessionID string, r Role, t Type, body interface{}) {
-	s, ok := e.sessions[sessionID]
-	if !ok {
+	e.RLock()
+	s, exists := e.sessions[sessionID]
+	e.RUnlock()
+
+	if !exists {
 		return
 	}
 
-	s.Lock()
-	defer s.Unlock()
-
+	s.RLock()
 	switch r {
 	case Voter:
 		for _, c := range s.voters {
@@ -79,6 +80,7 @@ func (e *Event) Emit(sessionID string, r Role, t Type, body interface{}) {
 			c <- NewPayload(t, body)
 		}
 	}
+	s.RUnlock()
 }
 
 func (e *Event) Subscribe(sessionID string, r Role, ws interface{}) (chan *Payload, error) {
@@ -87,38 +89,39 @@ func (e *Event) Subscribe(sessionID string, r Role, ws interface{}) (chan *Paylo
 
 	var s *session
 
-	s, ok := e.sessions[sessionID]
-	if !ok {
-		e.Lock()
-		defer e.Unlock()
-
+	e.RLock()
+	s, exists := e.sessions[sessionID]
+	e.RUnlock()
+	if !exists {
 		s = newSession()
+
+		e.Lock()
 		e.sessions[sessionID] = s
+		e.Unlock()
 	}
 
 	s.Lock()
-	defer s.Unlock()
-
 	switch r {
 	case Voter:
 		s.voters[ws] = c
 	case Controller:
 		s.controllers[ws] = c
 	}
+	s.Unlock()
 
 	return c, nil
 }
 
 func (e *Event) Unsubscribe(sessionID string, ws interface{}) error {
 	log.Printf("unsubscribe %q", sessionID)
-	s, ok := e.sessions[sessionID]
-	if !ok {
+	e.RLock()
+	s, exists := e.sessions[sessionID]
+	e.RUnlock()
+	if !exists {
 		return errors.New("no session found")
 	}
 
 	s.Lock()
-	defer s.Unlock()
-
 	if c, ok := s.voters[ws]; ok {
 		close(c)
 		delete(s.voters, ws)
@@ -128,10 +131,15 @@ func (e *Event) Unsubscribe(sessionID string, ws interface{}) error {
 		close(c)
 		delete(s.controllers, ws)
 	}
+	s.Unlock()
 
+	s.RLock()
+	e.Lock()
 	if len(s.voters)+len(s.controllers) == 0 {
 		delete(e.sessions, sessionID)
 	}
+	e.Unlock()
+	s.RUnlock()
 
 	return nil
 }
