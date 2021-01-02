@@ -10,7 +10,7 @@ build:
 
 .PHONY := test
 test: build
-	go test --count=1 ./...
+	go test -race --count=1 ./...
 
 .PHONY := docker
 docker: test
