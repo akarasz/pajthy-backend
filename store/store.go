@@ -16,7 +16,6 @@ type sessionWithLock struct {
 	sync.Mutex
 
 	session *domain.Session
-	locked  bool
 }
 
 func newSessionWithLock(s *domain.Session) *sessionWithLock {
@@ -44,7 +43,6 @@ func (s *Store) Lock(id string) error {
 	}
 
 	swl.Lock()
-	swl.locked = true
 	return nil
 }
 
@@ -55,7 +53,6 @@ func (s *Store) Unlock(id string) error {
 	}
 
 	swl.Unlock()
-	swl.locked = false
 	return nil
 }
 
