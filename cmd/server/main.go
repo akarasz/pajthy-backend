@@ -17,5 +17,5 @@ func main() {
 	s := store.New()
 	e := event.New()
 
-	log.Fatal(http.ListenAndServe(":8000", handler.NewRouter(s, e)))
+	log.Fatal(http.ListenAndServe(":8000", handler.New(s, e)))
 }

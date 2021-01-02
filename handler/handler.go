@@ -18,7 +18,7 @@ type Handler struct {
 	event *event.Event
 }
 
-func NewRouter(s *store.Store, e *event.Event) *mux.Router {
+func New(s *store.Store, e *event.Event) http.Handler {
 	h := &Handler{
 		store: s,
 		event: e,

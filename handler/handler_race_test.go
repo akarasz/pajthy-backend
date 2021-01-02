@@ -48,6 +48,9 @@ func TestParallelActions(t *testing.T) {
 					}
 					request(t, r, "PATCH", sessionUrl + "/stop", nil)
 					request(t, r, "PATCH", sessionUrl + "/reset", nil)
+					request(t, r, "PATCH", sessionUrl + "/start", nil)
+					request(t, r, "PATCH", sessionUrl + "/stop", nil)
+					request(t, r, "PATCH", sessionUrl + "/reset", nil)
 
 					request(t, r, "PATCH", sessionUrl + "/start", nil)
 					for v := 0; v < 2; v++ {

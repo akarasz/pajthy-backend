@@ -382,7 +382,7 @@ func readFromStore(t *testing.T, s *store.Store, id string) *domain.Session {
 	return res
 }
 
-func newRequest(t *testing.T, r *mux.Router, method string, url string, body interface{}) *httptest.ResponseRecorder {
+func newRequest(t *testing.T, h http.Handler, method string, url string, body interface{}) *httptest.ResponseRecorder {
 	var reqBody io.Reader
 	switch body.(type) {
 	case string:
@@ -397,7 +397,7 @@ func newRequest(t *testing.T, r *mux.Router, method string, url string, body int
 	assert.NoError(t, err)
 
 	rr := httptest.NewRecorder()
-	r.ServeHTTP(rr, req)
+	h.ServeHTTP(rr, req)
 
 	return rr
 }
