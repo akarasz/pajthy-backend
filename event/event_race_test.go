@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestSubscribeThenEmitSomeThenUnsubscribe(t *testing.T) {
+func TestParallelSubscribeThenEmitsThenUnsubscribe(t *testing.T) {
 	e := event.New()
 	wg := &sync.WaitGroup{}
 

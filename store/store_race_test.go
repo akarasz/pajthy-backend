@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestCreateThenReadModifyWrite(t *testing.T) {
+func TestParallelCreatesLoadsAndUpdates(t *testing.T) {
 	s := store.New()
 	wg := &sync.WaitGroup{}
 
