@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -35,7 +36,7 @@ func TestCreateSession(t *testing.T) {
 
 	if assert.Contains(t, rr.HeaderMap, "Location") && assert.Len(t, rr.HeaderMap["Location"], 1) {
 		got := readFromStore(t, s, strings.TrimLeft(rr.HeaderMap["Location"][0], "/"))
-		assert.Exactly(t, sessionWithChoices("one", "two"), got)
+		assert.Exactly(t, []string{"one", "two"}, got.Choices)
 	}
 }
 
@@ -369,6 +370,7 @@ func TestWS(t *testing.T) {
 func sessionWithChoices(choices ...string) *domain.Session {
 	res := domain.NewSession()
 	res.Choices = choices
+	res.Version = uuid.MustParse("beb86503-f69e-4a21-9f30-93ca121fee93")
 	return res
 }
 

@@ -23,7 +23,7 @@ func TestParallelActions(t *testing.T) {
 
 	wg := &sync.WaitGroup{}
 
-	voters := []string{ "Alice", "Bob", "Carol" }
+	voters := []string{"Alice", "Bob", "Carol"}
 
 	for c := 0; c < 3; c++ {
 		wg.Add(1)
@@ -32,34 +32,34 @@ func TestParallelActions(t *testing.T) {
 			sessionUrl := res.HeaderMap["Location"][0]
 
 			for _, v := range voters {
-				request(t, r, "PUT", sessionUrl + "/join", fmt.Sprintf(`"%s"`, v))
+				request(t, r, "PUT", sessionUrl+"/join", fmt.Sprintf(`"%s"`, v))
 			}
 
 			sWG := &sync.WaitGroup{}
 			for i := 0; i < 4; i++ {
 				sWG.Add(1)
 				go func(sessionUrl string) {
-					request(t, r, "PATCH", sessionUrl + "/start", nil)
+					request(t, r, "PATCH", sessionUrl+"/start", nil)
 					for v := 0; v < 2; v++ {
 						for _, v := range voters[1:3] {
 							request(t, r, "PUT", sessionUrl, fmt.Sprintf(`{"Choice": "first", "Participant": "%s"}`, v))
 							request(t, r, "PUT", sessionUrl, fmt.Sprintf(`{"Choice": "second", "Participant": "%s"}`, v))
 						}
 					}
-					request(t, r, "PATCH", sessionUrl + "/stop", nil)
-					request(t, r, "PATCH", sessionUrl + "/reset", nil)
-					request(t, r, "PATCH", sessionUrl + "/start", nil)
-					request(t, r, "PATCH", sessionUrl + "/stop", nil)
-					request(t, r, "PATCH", sessionUrl + "/reset", nil)
+					request(t, r, "PATCH", sessionUrl+"/stop", nil)
+					request(t, r, "PATCH", sessionUrl+"/reset", nil)
+					request(t, r, "PATCH", sessionUrl+"/start", nil)
+					request(t, r, "PATCH", sessionUrl+"/stop", nil)
+					request(t, r, "PATCH", sessionUrl+"/reset", nil)
 
-					request(t, r, "PATCH", sessionUrl + "/start", nil)
+					request(t, r, "PATCH", sessionUrl+"/start", nil)
 					for v := 0; v < 2; v++ {
 						for _, v := range voters {
 							request(t, r, "PUT", sessionUrl, fmt.Sprintf(`{"Choice": "first", "Participant": "%s"}`, v))
 							request(t, r, "PUT", sessionUrl, fmt.Sprintf(`{"Choice": "second", "Participant": "%s"}`, v))
 						}
 					}
-					request(t, r, "PATCH", sessionUrl + "/reset", nil)
+					request(t, r, "PATCH", sessionUrl+"/reset", nil)
 
 					sWG.Done()
 				}(sessionUrl)

@@ -18,6 +18,13 @@ type Handler struct {
 	event *event.Event
 }
 
+var (
+	errAlreadyJoined      = errors.New("already joined")
+	errClosedSession      = errors.New("session is closed")
+	errInvalidParticipant = errors.New("not a valid participant")
+	errInvalidChoice      = errors.New("not a valid choice")
+)
+
 func New(s *store.Store, e *event.Event) http.Handler {
 	h := &Handler{
 		store: s,

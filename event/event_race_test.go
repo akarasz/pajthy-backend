@@ -20,7 +20,11 @@ func TestParallelSubscribeThenEmitsThenUnsubscribe(t *testing.T) {
 				c, err := e.Subscribe(id, event.Voter, ws)
 				require.NoError(t, err)
 
-				go func(c chan *event.Payload) { for { <-c } }(c)
+				go func(c chan *event.Payload) {
+					for {
+						<-c
+					}
+				}(c)
 
 				eWG := &sync.WaitGroup{}
 				for i := 0; i < 3; i++ {

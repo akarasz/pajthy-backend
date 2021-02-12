@@ -3,6 +3,7 @@ package store_test
 import (
 	"testing"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -50,12 +51,20 @@ func TestUpdate(t *testing.T) {
 	created := domain.NewSession()
 	require.NoError(t, s.Create("id", created))
 
+	// updating with different version should return error
+	wrongVersion := domain.NewSession()
+	wrongVersion.Version = uuid.Must(uuid.NewRandom())
+
+	assert.Error(t, s.Update("id", wrongVersion))
+
 	// loading after updating right should return the same as updated
 	updated := domain.NewSession()
+	updated.Version = created.Version
+
 	require.NoError(t, s.Update("id", updated))
 
 	loaded, err := s.Load("id")
 	require.NoError(t, err)
 
-	assert.Exactly(t, loaded, updated)
+	assert.Exactly(t, &loaded, &updated)
 }

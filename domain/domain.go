@@ -1,5 +1,9 @@
 package domain
 
+import (
+	"github.com/google/uuid"
+)
+
 type Vote struct {
 	Participant string
 	Choice      string
@@ -10,6 +14,7 @@ type Session struct {
 	Participants []string
 	Votes        map[string]string
 	Open         bool
+	Version      uuid.UUID `json:"-"`
 }
 
 func NewSession() *Session {
@@ -18,5 +23,6 @@ func NewSession() *Session {
 		Participants: []string{},
 		Votes:        map[string]string{},
 		Open:         false,
+		Version:      uuid.Must(uuid.NewRandom()),
 	}
 }

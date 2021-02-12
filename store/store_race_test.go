@@ -29,8 +29,7 @@ func TestParallelCreatesLoadsAndUpdates(t *testing.T) {
 		for i := 0; i < 3; i++ {
 			wg.Add(1)
 			go func(id string) {
-				session, err := s.LockAndLoad(id)
-				defer s.Unlock(id)
+				session, err := s.Load(id)
 				require.NoError(t, err)
 
 				session.Open = !session.Open

@@ -9,6 +9,7 @@ import (
 	"github.com/gorilla/mux"
 
 	"github.com/akarasz/pajthy-backend/domain"
+	"github.com/akarasz/pajthy-backend/store"
 )
 
 func (h *Handler) createSession(w http.ResponseWriter, r *http.Request) {
@@ -50,8 +51,7 @@ func (h *Handler) getSession(w http.ResponseWriter, r *http.Request) {
 
 	log.Printf("get session %q", session)
 
-	s, err := h.store.LockAndLoad(session)
-	defer h.store.Unlock(session)
+	s, err := h.store.Load(session)
 	if err != nil {
 		showStoreError(w, err)
 		return
@@ -67,24 +67,34 @@ func (h *Handler) startVote(w http.ResponseWriter, r *http.Request) {
 
 	log.Printf("start vote %q", session)
 
-	s, err := h.store.LockAndLoad(session)
-	defer h.store.Unlock(session)
-	if err != nil {
+	err := store.OptimisticLocking(func() error {
+		s, err := h.store.Load(session)
+		if err != nil {
+			return err
+		}
+
+		s.Open = true
+		s.Votes = map[string]string{}
+
+		if err := h.store.Update(session, s); err != nil {
+			return err
+		}
+
+		h.emitVoteEnabled(session)
+
+		return nil
+	})
+
+	switch err {
+	case nil:
+		w.WriteHeader(http.StatusAccepted)
+	case store.ErrLocking:
+		showError(w, http.StatusInternalServerError, "locking error, try again later", nil)
+		return
+	default:
 		showStoreError(w, err)
 		return
 	}
-
-	s.Open = true
-	s.Votes = map[string]string{}
-
-	if err := h.store.Update(session, s); err != nil {
-		showStoreError(w, err)
-		return
-	}
-
-	h.emitVoteEnabled(session)
-
-	w.WriteHeader(http.StatusAccepted)
 }
 
 func (h *Handler) stopVote(w http.ResponseWriter, r *http.Request) {
@@ -92,23 +102,33 @@ func (h *Handler) stopVote(w http.ResponseWriter, r *http.Request) {
 
 	log.Printf("stop vote %q", session)
 
-	s, err := h.store.LockAndLoad(session)
-	defer h.store.Unlock(session)
-	if err != nil {
+	err := store.OptimisticLocking(func() error {
+		s, err := h.store.Load(session)
+		if err != nil {
+			return err
+		}
+
+		s.Open = false
+
+		if err := h.store.Update(session, s); err != nil {
+			return err
+		}
+
+		h.emitVoteDisabled(session)
+
+		return nil
+	})
+
+	switch err {
+	case nil:
+		w.WriteHeader(http.StatusAccepted)
+	case store.ErrLocking:
+		showError(w, http.StatusInternalServerError, "locking error, try again later", nil)
+		return
+	default:
 		showStoreError(w, err)
 		return
 	}
-
-	s.Open = false
-
-	if err := h.store.Update(session, s); err != nil {
-		showStoreError(w, err)
-		return
-	}
-
-	h.emitVoteDisabled(session)
-
-	w.WriteHeader(http.StatusAccepted)
 }
 
 func (h *Handler) resetVote(w http.ResponseWriter, r *http.Request) {
@@ -116,25 +136,35 @@ func (h *Handler) resetVote(w http.ResponseWriter, r *http.Request) {
 
 	log.Printf("reset vote %q", session)
 
-	s, err := h.store.LockAndLoad(session)
-	defer h.store.Unlock(session)
-	if err != nil {
+	err := store.OptimisticLocking(func() error {
+		s, err := h.store.Load(session)
+		if err != nil {
+			return err
+		}
+
+		s.Open = false
+		s.Votes = map[string]string{}
+
+		if err := h.store.Update(session, s); err != nil {
+			return err
+		}
+
+		h.emitReset(session)
+		h.emitVote(session, s.Votes)
+
+		return nil
+	})
+
+	switch err {
+	case nil:
+		w.WriteHeader(http.StatusAccepted)
+	case store.ErrLocking:
+		showError(w, http.StatusInternalServerError, "locking error, try again later", nil)
+		return
+	default:
 		showStoreError(w, err)
 		return
 	}
-
-	s.Open = false
-	s.Votes = map[string]string{}
-
-	if err := h.store.Update(session, s); err != nil {
-		showStoreError(w, err)
-		return
-	}
-
-	h.emitReset(session)
-	h.emitVote(session, s.Votes)
-
-	w.WriteHeader(http.StatusAccepted)
 }
 
 func (h *Handler) kickParticipant(w http.ResponseWriter, r *http.Request) {
@@ -147,32 +177,45 @@ func (h *Handler) kickParticipant(w http.ResponseWriter, r *http.Request) {
 
 	log.Printf("kick participant %q %q", session, name)
 
-	s, err := h.store.LockAndLoad(session)
-	defer h.store.Unlock(session)
-	if err != nil {
-		showStoreError(w, err)
-		return
-	}
-
-	idx := -1
-	for i, p := range s.Participants {
-		if p == name {
-			idx = i
-			break
+	err := store.OptimisticLocking(func() error {
+		s, err := h.store.Load(session)
+		if err != nil {
+			return err
 		}
-	}
-	if idx < 0 {
+
+		idx := -1
+		for i, p := range s.Participants {
+			if p == name {
+				idx = i
+				break
+			}
+		}
+		if idx < 0 {
+			return errInvalidParticipant
+		}
+		s.Participants = append(s.Participants[:idx], s.Participants[idx+1:]...)
+
+		if err := h.store.Update(session, s); err != nil {
+			showStoreError(w, err)
+			return err
+		}
+
+		h.emitParticipantsChange(session, s.Participants)
+
+		return nil
+	})
+
+	switch err {
+	case nil:
+		w.WriteHeader(http.StatusNoContent)
+	case errInvalidParticipant:
 		showError(w, http.StatusBadRequest, "not a participant", nil)
 		return
-	}
-	s.Participants = append(s.Participants[:idx], s.Participants[idx+1:]...)
-
-	if err := h.store.Update(session, s); err != nil {
+	case store.ErrLocking:
+		showError(w, http.StatusInternalServerError, "locking error, try again later", nil)
+		return
+	default:
 		showStoreError(w, err)
 		return
 	}
-
-	h.emitParticipantsChange(session, s.Participants)
-
-	w.WriteHeader(http.StatusNoContent)
 }
