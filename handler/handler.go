@@ -79,10 +79,16 @@ func readContent(w http.ResponseWriter, r *http.Request, dest interface{}) error
 		showError(w, http.StatusBadRequest, "wrong body", err)
 		return err
 	}
-	if err := json.Unmarshal(rawBody, &dest); err != nil {
-		showError(w, http.StatusInternalServerError, "request json decoding", err)
-		return err
+	switch dest.(type) {
+	case *string:
+		*dest.(*string) = string(rawBody)
+	default:
+		if err := json.Unmarshal(rawBody, &dest); err != nil {
+			showError(w, http.StatusInternalServerError, "request json decoding", err)
+			return err
+		}
 	}
+
 	return nil
 }
 

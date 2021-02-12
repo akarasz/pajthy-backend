@@ -268,7 +268,7 @@ func TestKickParticipant(t *testing.T) {
 	r := handler.New(s, e)
 
 	// returns 404 when no id is in store
-	r1 := newRequest(t, r, "PATCH", "/bcdef/control/kick", `"Bob"`)
+	r1 := newRequest(t, r, "PATCH", "/bcdef/control/kick", `Bob`)
 	assert.Exactly(t, http.StatusNotFound, r1.Code)
 
 	// successful request
@@ -280,7 +280,7 @@ func TestKickParticipant(t *testing.T) {
 	})
 	controllerEvent, _ := subscribe(t, e, "bcdef", 1, 0)
 
-	r2 := newRequest(t, r, "PATCH", "/bcdef/control/kick", `"Bob"`)
+	r2 := newRequest(t, r, "PATCH", "/bcdef/control/kick", `Bob`)
 	assert.Exactly(t, http.StatusNoContent, r2.Code)
 
 	sess := readFromStore(t, s, "bcdef")
@@ -318,7 +318,7 @@ func TestJoin(t *testing.T) {
 	r := handler.New(s, e)
 
 	// requesting nonexisting session should return 404
-	r1 := newRequest(t, r, "PUT", "/ididi/join", `"Alice"`)
+	r1 := newRequest(t, r, "PUT", "/ididi/join", `Alice`)
 	assert.Exactly(t, http.StatusNotFound, r1.Code)
 
 	// successful request
@@ -330,7 +330,7 @@ func TestJoin(t *testing.T) {
 	})
 	controllerEvent, _ := subscribe(t, e, "ididi", 1, 0)
 
-	r2 := newRequest(t, r, "PUT", "/ididi/join", `"Alice"`)
+	r2 := newRequest(t, r, "PUT", "/ididi/join", `Alice`)
 	assert.Exactly(t, http.StatusCreated, r2.Code)
 
 	sess := readFromStore(t, s, "ididi")
@@ -342,7 +342,7 @@ func TestJoin(t *testing.T) {
 	}
 
 	// joining with an existing name returns 409
-	r3 := newRequest(t, r, "PUT", "/ididi/join", `"Alice"`)
+	r3 := newRequest(t, r, "PUT", "/ididi/join", `Alice`)
 	assert.Exactly(t, http.StatusConflict, r3.Code)
 }
 
