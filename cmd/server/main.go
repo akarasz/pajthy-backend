@@ -14,7 +14,7 @@ import (
 func main() {
 	rand.Seed(time.Now().UnixNano())
 
-	s := store.New()
+	s := store.NewInMemory()
 	e := event.New()
 
 	log.Fatal(http.ListenAndServe(":8000", handler.New(s, e)))

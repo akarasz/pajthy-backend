@@ -14,7 +14,7 @@ import (
 )
 
 type Handler struct {
-	store *store.Store
+	store store.Store
 	event *event.Event
 }
 
@@ -25,7 +25,7 @@ var (
 	errInvalidChoice      = errors.New("not a valid choice")
 )
 
-func New(s *store.Store, e *event.Event) http.Handler {
+func New(s store.Store, e *event.Event) http.Handler {
 	h := &Handler{
 		store: s,
 		event: e,

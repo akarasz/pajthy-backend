@@ -17,7 +17,7 @@ import (
 )
 
 func TestParallelActions(t *testing.T) {
-	s := store.New()
+	s := store.NewInMemory()
 	e := event.New()
 	r := handler.New(s, e)
 

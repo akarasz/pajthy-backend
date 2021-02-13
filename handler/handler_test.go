@@ -20,7 +20,7 @@ import (
 )
 
 func TestCreateSession(t *testing.T) {
-	s := store.New()
+	s := store.NewInMemory()
 	r := handler.New(s, nil)
 
 	rr := newRequest(t, r, "POST", "/", `["one", "two"]`)
@@ -41,7 +41,7 @@ func TestCreateSession(t *testing.T) {
 }
 
 func TestChoices(t *testing.T) {
-	s := store.New()
+	s := store.NewInMemory()
 	r := handler.New(s, nil)
 
 	// requesting a nonexistent one return 404
@@ -61,7 +61,7 @@ func TestChoices(t *testing.T) {
 }
 
 func TestVote(t *testing.T) {
-	s := store.New()
+	s := store.NewInMemory()
 	e := event.New()
 	r := handler.New(s, e)
 
@@ -141,7 +141,7 @@ func TestVote(t *testing.T) {
 }
 
 func TestGetSession(t *testing.T) {
-	s := store.New()
+	s := store.NewInMemory()
 	r := handler.New(s, nil)
 
 	// returns 404 when no id is in store
@@ -162,7 +162,7 @@ func TestGetSession(t *testing.T) {
 }
 
 func TestStartVote(t *testing.T) {
-	s := store.New()
+	s := store.NewInMemory()
 	e := event.New()
 	r := handler.New(s, e)
 
@@ -195,7 +195,7 @@ func TestStartVote(t *testing.T) {
 }
 
 func TestStopVote(t *testing.T) {
-	s := store.New()
+	s := store.NewInMemory()
 	e := event.New()
 	r := handler.New(s, e)
 
@@ -227,7 +227,7 @@ func TestStopVote(t *testing.T) {
 }
 
 func TestResetVote(t *testing.T) {
-	s := store.New()
+	s := store.NewInMemory()
 	e := event.New()
 	r := handler.New(s, e)
 
@@ -263,7 +263,7 @@ func TestResetVote(t *testing.T) {
 }
 
 func TestKickParticipant(t *testing.T) {
-	s := store.New()
+	s := store.NewInMemory()
 	e := event.New()
 	r := handler.New(s, e)
 
@@ -292,7 +292,7 @@ func TestKickParticipant(t *testing.T) {
 }
 
 func TestControlWS(t *testing.T) {
-	s := store.New()
+	s := store.NewInMemory()
 	e := event.New()
 	server := httptest.NewServer(handler.New(s, e))
 	defer server.Close()
@@ -313,7 +313,7 @@ func TestControlWS(t *testing.T) {
 }
 
 func TestJoin(t *testing.T) {
-	s := store.New()
+	s := store.NewInMemory()
 	e := event.New()
 	r := handler.New(s, e)
 
@@ -347,7 +347,7 @@ func TestJoin(t *testing.T) {
 }
 
 func TestWS(t *testing.T) {
-	s := store.New()
+	s := store.NewInMemory()
 	e := event.New()
 	server := httptest.NewServer(handler.New(s, e))
 	defer server.Close()
@@ -374,11 +374,11 @@ func sessionWithChoices(choices ...string) *domain.Session {
 	return res
 }
 
-func insertToStore(t *testing.T, s *store.Store, id string, session *domain.Session) {
+func insertToStore(t *testing.T, s store.Store, id string, session *domain.Session) {
 	require.NoError(t, s.Create(id, session))
 }
 
-func readFromStore(t *testing.T, s *store.Store, id string) *domain.Session {
+func readFromStore(t *testing.T, s store.Store, id string) *domain.Session {
 	res, err := s.Load(id)
 	assert.NoError(t, err)
 	return res

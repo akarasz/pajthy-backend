@@ -11,7 +11,7 @@ import (
 )
 
 func TestParallelCreatesLoadsAndUpdates(t *testing.T) {
-	s := store.New()
+	s := store.NewInMemory()
 	wg := &sync.WaitGroup{}
 
 	// create some

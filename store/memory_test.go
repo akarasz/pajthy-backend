@@ -12,7 +12,7 @@ import (
 )
 
 func TestLoad(t *testing.T) {
-	s := store.New()
+	s := store.NewInMemory()
 
 	// loading a non-existent session should return an error
 	_, err := s.Load("id")
@@ -28,7 +28,7 @@ func TestLoad(t *testing.T) {
 }
 
 func TestCreate(t *testing.T) {
-	s := store.New()
+	s := store.NewInMemory()
 
 	// created session should be returned by load
 	want := domain.NewSession()
@@ -43,7 +43,7 @@ func TestCreate(t *testing.T) {
 }
 
 func TestUpdate(t *testing.T) {
-	s := store.New()
+	s := store.NewInMemory()
 
 	// update non existing id should return error
 	assert.Equal(t, store.ErrNotExists, s.Update("id", domain.NewSession()))
