@@ -4,10 +4,12 @@ import (
 	"context"
 	"math/rand"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"time"
 
 	"github.com/aws/aws-lambda-go/lambda"
+	"github.com/aws/aws-sdk-go-v2/config"
 
 	"github.com/akarasz/pajthy-backend/event"
 	"github.com/akarasz/pajthy-backend/handler"
@@ -36,7 +38,7 @@ type Response struct {
 	Body       string            `json:"body"`
 }
 
-func HandleLambda(ctx context.Context, in Request) (Response, error) {
+func HandleLambda(ctx context.Context, in *Request) (*Response, error) {
 	req := httptest.NewRequest(
 		in.RequestContext.Http.Method,
 		in.RequestContext.Http.Path,
@@ -52,7 +54,12 @@ func HandleLambda(ctx context.Context, in Request) (Response, error) {
 
 	rr := httptest.NewRecorder()
 
-	h := handler.New(store.NewInMemory(), event.New())
+	c, err := config.LoadDefaultConfig(context.TODO())
+	if err != nil {
+		return nil, err
+	}
+
+	h := handler.New(store.NewDynamoDB(&c, os.Getenv("DYNAMO_TABLE_NAME")), event.New())
 	h.ServeHTTP(rr, req)
 
 	headers := map[string]string{}
@@ -60,7 +67,7 @@ func HandleLambda(ctx context.Context, in Request) (Response, error) {
 		headers[k] = vv[0]
 	}
 
-	return Response{
+	return &Response{
 		StatusCode: rr.Code,
 		Headers:    headers,
 		Body:       rr.Body.String(),

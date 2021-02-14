@@ -28,6 +28,13 @@ type Session struct {
 	Version uuid.UUID
 }
 
+func WithNewVersion(data *domain.Session) *Session {
+	return &Session{
+		Data:    data,
+		Version: uuid.Must(uuid.NewRandom()),
+	}
+}
+
 func OptimisticLocking(f func() error) error {
 	for retry := 0; retry < 5; retry++ {
 		err := f()

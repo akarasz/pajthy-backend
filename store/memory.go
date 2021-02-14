@@ -29,10 +29,7 @@ func (im *InMemory) Create(id string, created *domain.Session) error {
 		return ErrAlreadyExists
 	}
 
-	im.repo[id] = &Session{
-		Data:    created,
-		Version: uuid.Must(uuid.NewRandom()),
-	}
+	im.repo[id] = WithNewVersion(created)
 
 	return nil
 }
