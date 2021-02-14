@@ -4,6 +4,8 @@ import (
 	"errors"
 	"time"
 
+	"github.com/google/uuid"
+
 	"github.com/akarasz/pajthy-backend/domain"
 )
 
@@ -17,8 +19,13 @@ var (
 
 type Store interface {
 	Create(id string, created *domain.Session) error
-	Update(id string, updated *domain.Session) error
-	Load(id string) (*domain.Session, error)
+	Update(id string, updated *Session) error
+	Load(id string) (*Session, error)
+}
+
+type Session struct {
+	Data    *domain.Session
+	Version uuid.UUID
 }
 
 func OptimisticLocking(f func() error) error {

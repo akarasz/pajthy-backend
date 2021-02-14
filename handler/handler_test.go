@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/google/uuid"
+	// "github.com/google/uuid"
 	"github.com/gorilla/websocket"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -370,7 +370,7 @@ func TestWS(t *testing.T) {
 func sessionWithChoices(choices ...string) *domain.Session {
 	res := domain.NewSession()
 	res.Choices = choices
-	res.Version = uuid.MustParse("beb86503-f69e-4a21-9f30-93ca121fee93")
+	// res.Version = uuid.MustParse("beb86503-f69e-4a21-9f30-93ca121fee93")
 	return res
 }
 
@@ -381,7 +381,7 @@ func insertToStore(t *testing.T, s store.Store, id string, session *domain.Sessi
 func readFromStore(t *testing.T, s store.Store, id string) *domain.Session {
 	res, err := s.Load(id)
 	assert.NoError(t, err)
-	return res
+	return res.Data
 }
 
 func newRequest(t *testing.T, h http.Handler, method string, url string, body interface{}) *httptest.ResponseRecorder {

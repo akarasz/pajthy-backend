@@ -32,7 +32,7 @@ func TestParallelCreatesLoadsAndUpdates(t *testing.T) {
 				session, err := s.Load(id)
 				require.NoError(t, err)
 
-				session.Open = !session.Open
+				session.Data.Open = !session.Data.Open
 
 				err = s.Update(id, session)
 				require.NoError(t, err)

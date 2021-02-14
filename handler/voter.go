@@ -20,11 +20,12 @@ func (h *Handler) choices(w http.ResponseWriter, r *http.Request) {
 
 	log.Printf("choices %q", session)
 
-	s, err := h.store.Load(session)
+	ss, err := h.store.Load(session)
 	if err != nil {
 		showStoreError(w, err)
 		return
 	}
+	s := ss.Data
 
 	res := &ChoicesResponse{
 		Choices: s.Choices,
@@ -47,10 +48,11 @@ func (h *Handler) vote(w http.ResponseWriter, r *http.Request) {
 	log.Printf("vote %q %q", session, v)
 
 	err := store.OptimisticLocking(func() error {
-		s, err := h.store.Load(session)
+		ss, err := h.store.Load(session)
 		if err != nil {
 			return err
 		}
+		s := ss.Data
 
 		if !s.Open {
 			return errClosedSession
@@ -85,7 +87,7 @@ func (h *Handler) vote(w http.ResponseWriter, r *http.Request) {
 			h.emitVoteDisabled(session)
 		}
 
-		if err = h.store.Update(session, s); err != nil {
+		if err = h.store.Update(session, ss); err != nil {
 			return err
 		}
 
@@ -123,10 +125,11 @@ func (h *Handler) join(w http.ResponseWriter, r *http.Request) {
 	log.Printf("join %q %q", session, name)
 
 	err := store.OptimisticLocking(func() error {
-		s, err := h.store.Load(session)
+		ss, err := h.store.Load(session)
 		if err != nil {
 			return err
 		}
+		s := ss.Data
 
 		for _, p := range s.Participants {
 			if p == name {
@@ -135,7 +138,7 @@ func (h *Handler) join(w http.ResponseWriter, r *http.Request) {
 		}
 		s.Participants = append(s.Participants, name)
 
-		err = h.store.Update(session, s)
+		err = h.store.Update(session, ss)
 		if err != nil {
 			return err
 		}

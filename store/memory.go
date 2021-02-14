@@ -9,14 +9,14 @@ import (
 )
 
 type InMemory struct {
-	repo map[string]*domain.Session
+	repo map[string]*Session
 
 	sync.RWMutex
 }
 
 func NewInMemory() *InMemory {
 	return &InMemory{
-		repo: map[string]*domain.Session{},
+		repo: map[string]*Session{},
 	}
 }
 
@@ -29,12 +29,15 @@ func (im *InMemory) Create(id string, created *domain.Session) error {
 		return ErrAlreadyExists
 	}
 
-	im.repo[id] = created
+	im.repo[id] = &Session{
+		Data:    created,
+		Version: uuid.Must(uuid.NewRandom()),
+	}
 
 	return nil
 }
 
-func (im *InMemory) Update(id string, updated *domain.Session) error {
+func (im *InMemory) Update(id string, updated *Session) error {
 	im.Lock()
 	defer im.Unlock()
 
@@ -52,7 +55,7 @@ func (im *InMemory) Update(id string, updated *domain.Session) error {
 	return nil
 }
 
-func (im *InMemory) Load(id string) (*domain.Session, error) {
+func (im *InMemory) Load(id string) (*Session, error) {
 	im.RLock()
 	defer im.RUnlock()
 

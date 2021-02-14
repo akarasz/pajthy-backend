@@ -57,7 +57,7 @@ func (h *Handler) getSession(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := showJSON(w, s); err != nil {
+	if err := showJSON(w, s.Data); err != nil {
 		return
 	}
 }
@@ -68,15 +68,16 @@ func (h *Handler) startVote(w http.ResponseWriter, r *http.Request) {
 	log.Printf("start vote %q", session)
 
 	err := store.OptimisticLocking(func() error {
-		s, err := h.store.Load(session)
+		ss, err := h.store.Load(session)
 		if err != nil {
 			return err
 		}
+		s := ss.Data
 
 		s.Open = true
 		s.Votes = map[string]string{}
 
-		if err := h.store.Update(session, s); err != nil {
+		if err := h.store.Update(session, ss); err != nil {
 			return err
 		}
 
@@ -103,14 +104,15 @@ func (h *Handler) stopVote(w http.ResponseWriter, r *http.Request) {
 	log.Printf("stop vote %q", session)
 
 	err := store.OptimisticLocking(func() error {
-		s, err := h.store.Load(session)
+		ss, err := h.store.Load(session)
 		if err != nil {
 			return err
 		}
+		s := ss.Data
 
 		s.Open = false
 
-		if err := h.store.Update(session, s); err != nil {
+		if err := h.store.Update(session, ss); err != nil {
 			return err
 		}
 
@@ -137,15 +139,16 @@ func (h *Handler) resetVote(w http.ResponseWriter, r *http.Request) {
 	log.Printf("reset vote %q", session)
 
 	err := store.OptimisticLocking(func() error {
-		s, err := h.store.Load(session)
+		ss, err := h.store.Load(session)
 		if err != nil {
 			return err
 		}
+		s := ss.Data
 
 		s.Open = false
 		s.Votes = map[string]string{}
 
-		if err := h.store.Update(session, s); err != nil {
+		if err := h.store.Update(session, ss); err != nil {
 			return err
 		}
 
@@ -178,10 +181,11 @@ func (h *Handler) kickParticipant(w http.ResponseWriter, r *http.Request) {
 	log.Printf("kick participant %q %q", session, name)
 
 	err := store.OptimisticLocking(func() error {
-		s, err := h.store.Load(session)
+		ss, err := h.store.Load(session)
 		if err != nil {
 			return err
 		}
+		s := ss.Data
 
 		idx := -1
 		for i, p := range s.Participants {
@@ -195,7 +199,7 @@ func (h *Handler) kickParticipant(w http.ResponseWriter, r *http.Request) {
 		}
 		s.Participants = append(s.Participants[:idx], s.Participants[idx+1:]...)
 
-		if err := h.store.Update(session, s); err != nil {
+		if err := h.store.Update(session, ss); err != nil {
 			showStoreError(w, err)
 			return err
 		}

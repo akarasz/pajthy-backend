@@ -26,7 +26,7 @@ func (t *Suite) TestLoad() {
 
 	// loading should return the session
 	if got, err := s.Load("id"); t.NoError(err) {
-		t.Exactly(created, got)
+		t.Exactly(created, got.Data)
 	}
 }
 
@@ -39,7 +39,7 @@ func (t *Suite) TestCreate() {
 
 	got, err := s.Load("id")
 	t.Require().NoError(err)
-	t.Exactly(want, got)
+	t.Exactly(want, got.Data)
 
 	// creating with an existing id should return an error
 	t.Equal(s.Create("id", want), store.ErrAlreadyExists)
@@ -49,20 +49,27 @@ func (t *Suite) TestUpdate() {
 	s := store.NewInMemory()
 
 	// update non existing id should return error
-	t.Equal(store.ErrNotExists, s.Update("id", domain.NewSession()))
+	t.Equal(store.ErrNotExists, s.Update("id", &store.Session{}))
 
 	created := domain.NewSession()
 	t.Require().NoError(s.Create("id", created))
 
 	// updating with different version should return error
-	wrongVersion := domain.NewSession()
-	wrongVersion.Version = uuid.Must(uuid.NewRandom())
+	wrongVersion := &store.Session{
+		Data:    created,
+		Version: uuid.Must(uuid.NewRandom()),
+	}
 
 	t.Error(s.Update("id", wrongVersion))
 
 	// loading after updating right should return the same as updated
-	updated := domain.NewSession()
-	updated.Version = created.Version
+	stored, err := s.Load("id")
+	t.Require().NoError(err)
+
+	updated := &store.Session{
+		Data:    domain.NewSession(),
+		Version: stored.Version,
+	}
 
 	t.Require().NoError(s.Update("id", updated))
 
