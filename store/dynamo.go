@@ -2,11 +2,13 @@ package store
 
 import (
 	"context"
+	"errors"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/expression"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
+	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 
 	"github.com/akarasz/pajthy-backend/domain"
 )
@@ -69,6 +71,11 @@ func (d *DynamoDB) Create(id string, created *domain.Session) error {
 
 	_, err = d.client.PutItem(context.TODO(), req)
 	if err != nil {
+		var ccfe *types.ConditionalCheckFailedException
+		if errors.As(err, &ccfe) {
+			return ErrAlreadyExists
+		}
+
 		return err
 	}
 
@@ -99,6 +106,11 @@ func (d *DynamoDB) Update(id string, updated *Session) error {
 
 	_, err = d.client.PutItem(context.TODO(), req)
 	if err != nil {
+		var ccfe *types.ConditionalCheckFailedException
+		if errors.As(err, &ccfe) {
+			return ErrNotExists
+		}
+
 		return err
 	}
 
@@ -119,6 +131,10 @@ func (d *DynamoDB) Load(id string) (*Session, error) {
 	res, err := d.client.GetItem(context.TODO(), req)
 	if err != nil {
 		return nil, err
+	}
+
+	if len(res.Item) == 0 {
+		return nil, ErrNotExists
 	}
 
 	item := dynamoItem{

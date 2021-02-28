@@ -15,44 +15,44 @@ type Suite struct {
 }
 
 func (t *Suite) TestLoad() {
-	s := store.NewInMemory()
+	s := t.Subject
 
 	// loading a non-existent session should return an error
-	_, err := s.Load("id")
-	t.Equal(err, store.ErrNotExists)
+	_, err := s.Load("loadID")
+	t.Equal(store.ErrNotExists, err)
 
 	created := domain.NewSession()
-	t.Require().NoError(s.Create("id", created))
+	t.Require().NoError(s.Create("loadID", created))
 
 	// loading should return the session
-	if got, err := s.Load("id"); t.NoError(err) {
+	if got, err := s.Load("loadID"); t.NoError(err) {
 		t.Exactly(created, got.Data)
 	}
 }
 
 func (t *Suite) TestCreate() {
-	s := store.NewInMemory()
+	s := t.Subject
 
 	// created session should be returned by load
 	want := domain.NewSession()
-	t.NoError(s.Create("id", want))
+	t.NoError(s.Create("createID", want))
 
-	got, err := s.Load("id")
+	got, err := s.Load("createID")
 	t.Require().NoError(err)
 	t.Exactly(want, got.Data)
 
 	// creating with an existing id should return an error
-	t.Equal(s.Create("id", want), store.ErrAlreadyExists)
+	t.Equal(store.ErrAlreadyExists, s.Create("createID", want))
 }
 
 func (t *Suite) TestUpdate() {
-	s := store.NewInMemory()
+	s := t.Subject
 
 	// update non existing id should return error
-	t.Equal(store.ErrNotExists, s.Update("id", &store.Session{}))
+	t.Equal(store.ErrNotExists, s.Update("updateID", &store.Session{}))
 
 	created := domain.NewSession()
-	t.Require().NoError(s.Create("id", created))
+	t.Require().NoError(s.Create("updateID", created))
 
 	// updating with different version should return error
 	wrongVersion := &store.Session{
@@ -60,10 +60,10 @@ func (t *Suite) TestUpdate() {
 		Version: uuid.Must(uuid.NewRandom()),
 	}
 
-	t.Error(s.Update("id", wrongVersion))
+	t.Error(s.Update("updateID", wrongVersion))
 
-	// loading after updating right should return the same as updated
-	stored, err := s.Load("id")
+	// loading right after updating should return the same as updated
+	stored, err := s.Load("updateID")
 	t.Require().NoError(err)
 
 	updated := &store.Session{
@@ -71,10 +71,10 @@ func (t *Suite) TestUpdate() {
 		Version: stored.Version,
 	}
 
-	t.Require().NoError(s.Update("id", updated))
+	t.Require().NoError(s.Update("updateID", updated))
 
-	loaded, err := s.Load("id")
+	loaded, err := s.Load("updateID")
 	t.Require().NoError(err)
 
-	t.Exactly(&loaded, &updated)
+	t.Exactly(updated.Data, loaded.Data)
 }
