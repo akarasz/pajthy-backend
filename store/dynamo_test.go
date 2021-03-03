@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"testing"
-	// "time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
@@ -55,7 +54,6 @@ func TestDynamoDB(t *testing.T) {
 	c, err := config.LoadDefaultConfig(ctx, config.WithEndpointResolver(customResolver))
 	require.NoError(t, err)
 
-	// TODO create testPajthy table
 	client := dynamodb.NewFromConfig(c)
 
 	_, err = client.CreateTable(context.TODO(), &dynamodb.CreateTableInput{
@@ -81,6 +79,4 @@ func TestDynamoDB(t *testing.T) {
 
 	s := store.NewDynamoDB(&c, "testPajthy")
 	suite.Run(t, &Suite{Subject: s})
-
-	// time.Sleep(5 * time.Minute)
 }

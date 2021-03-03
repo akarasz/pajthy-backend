@@ -10,17 +10,13 @@ import (
 )
 
 var (
-	ErrAlreadyExists = errors.New("session already exists")
-	ErrNotExists     = errors.New("session not exists")
-	ErrLocking       = errors.New("locking error")
-
-	errVersionMismatch = errors.New("version mismatch")
+	ErrNotExists       = errors.New("session not exists")
+	ErrVersionMismatch = errors.New("version mismatch")
 )
 
 type Store interface {
-	Create(id string, created *domain.Session) error
-	Update(id string, updated *Session) error
 	Load(id string) (*Session, error)
+	Save(id string, item *domain.Session, version ...uuid.UUID) error
 }
 
 type Session struct {
@@ -35,16 +31,29 @@ func WithNewVersion(data *domain.Session) *Session {
 	}
 }
 
-func OptimisticLocking(f func() error) error {
+func ReadModifyWrite(id string, s Store, modify func(*domain.Session) (*domain.Session, error)) (*domain.Session, error) {
 	for retry := 0; retry < 5; retry++ {
-		err := f()
-		if err == errVersionMismatch {
-			time.Sleep(20 * time.Millisecond)
-			continue
+		loaded, err := s.Load(id)
+		if err != nil {
+			return nil, err
 		}
 
-		return err
+		modified, err := modify(loaded.Data)
+		if err != nil {
+			if err == ErrVersionMismatch {
+				time.Sleep(20 * time.Millisecond)
+				continue
+			}
+
+			return nil, err
+		}
+
+		if err = s.Save(id, modified, loaded.Version); err != nil {
+			return nil, err
+		}
+
+		return modified, nil
 	}
 
-	return ErrLocking
+	return nil, ErrVersionMismatch
 }

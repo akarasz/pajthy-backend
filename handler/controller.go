@@ -24,7 +24,7 @@ func (h *Handler) createSession(w http.ResponseWriter, r *http.Request) {
 	s := domain.NewSession()
 	s.Choices = choices
 
-	if err := h.store.Create(id, s); err != nil {
+	if err := h.store.Save(id, s); err != nil {
 		showStoreError(w, err)
 		return
 	}
@@ -63,130 +63,96 @@ func (h *Handler) getSession(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) startVote(w http.ResponseWriter, r *http.Request) {
-	session := mux.Vars(r)["session"]
+	id := mux.Vars(r)["session"]
 
-	log.Printf("start vote %q", session)
+	log.Printf("start vote %q", id)
 
-	err := store.OptimisticLocking(func() error {
-		ss, err := h.store.Load(session)
-		if err != nil {
-			return err
-		}
-		s := ss.Data
-
+	_, err := store.ReadModifyWrite(id, h.store, func(s *domain.Session) (*domain.Session, error) {
 		s.Open = true
 		s.Votes = map[string]string{}
 
-		if err := h.store.Update(session, ss); err != nil {
-			return err
-		}
-
-		h.emitVoteEnabled(session)
-
-		return nil
+		return s, nil
 	})
 
 	switch err {
 	case nil:
 		w.WriteHeader(http.StatusAccepted)
-	case store.ErrLocking:
+	case store.ErrVersionMismatch:
 		showError(w, http.StatusInternalServerError, "locking error, try again later", nil)
 		return
 	default:
 		showStoreError(w, err)
 		return
 	}
+
+	h.emitVoteEnabled(id)
+
 }
 
 func (h *Handler) stopVote(w http.ResponseWriter, r *http.Request) {
-	session := mux.Vars(r)["session"]
+	id := mux.Vars(r)["session"]
 
-	log.Printf("stop vote %q", session)
+	log.Printf("stop vote %q", id)
 
-	err := store.OptimisticLocking(func() error {
-		ss, err := h.store.Load(session)
-		if err != nil {
-			return err
-		}
-		s := ss.Data
-
+	_, err := store.ReadModifyWrite(id, h.store, func(s *domain.Session) (*domain.Session, error) {
 		s.Open = false
 
-		if err := h.store.Update(session, ss); err != nil {
-			return err
-		}
-
-		h.emitVoteDisabled(session)
-
-		return nil
+		return s, nil
 	})
 
 	switch err {
 	case nil:
 		w.WriteHeader(http.StatusAccepted)
-	case store.ErrLocking:
+	case store.ErrVersionMismatch:
 		showError(w, http.StatusInternalServerError, "locking error, try again later", nil)
 		return
 	default:
 		showStoreError(w, err)
 		return
 	}
+
+	h.emitVoteDisabled(id)
 }
 
 func (h *Handler) resetVote(w http.ResponseWriter, r *http.Request) {
-	session := mux.Vars(r)["session"]
+	id := mux.Vars(r)["session"]
 
-	log.Printf("reset vote %q", session)
+	log.Printf("reset vote %q", id)
 
-	err := store.OptimisticLocking(func() error {
-		ss, err := h.store.Load(session)
-		if err != nil {
-			return err
-		}
-		s := ss.Data
-
+	saved, err := store.ReadModifyWrite(id, h.store, func(s *domain.Session) (*domain.Session, error) {
 		s.Open = false
 		s.Votes = map[string]string{}
 
-		if err := h.store.Update(session, ss); err != nil {
-			return err
-		}
-
-		h.emitReset(session)
-		h.emitVote(session, s.Votes)
-
-		return nil
+		return s, nil
 	})
 
 	switch err {
 	case nil:
 		w.WriteHeader(http.StatusAccepted)
-	case store.ErrLocking:
+	case store.ErrVersionMismatch:
 		showError(w, http.StatusInternalServerError, "locking error, try again later", nil)
 		return
 	default:
 		showStoreError(w, err)
 		return
 	}
+
+	h.emitReset(id)
+	h.emitVote(id, saved.Votes)
+
 }
 
 func (h *Handler) kickParticipant(w http.ResponseWriter, r *http.Request) {
-	session := mux.Vars(r)["session"]
+	id := mux.Vars(r)["session"]
 
 	var name string
 	if err := readContent(w, r, &name); err != nil {
 		return
 	}
 
-	log.Printf("kick participant %q %q", session, name)
+	log.Printf("kick participant %q %q", id, name)
 
-	err := store.OptimisticLocking(func() error {
-		ss, err := h.store.Load(session)
-		if err != nil {
-			return err
-		}
-		s := ss.Data
-
+	saved, err := store.ReadModifyWrite(id, h.store, func(s *domain.Session) (*domain.Session, error) {
 		idx := -1
 		for i, p := range s.Participants {
 			if p == name {
@@ -195,18 +161,11 @@ func (h *Handler) kickParticipant(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 		if idx < 0 {
-			return errInvalidParticipant
+			return nil, errInvalidParticipant
 		}
 		s.Participants = append(s.Participants[:idx], s.Participants[idx+1:]...)
 
-		if err := h.store.Update(session, ss); err != nil {
-			showStoreError(w, err)
-			return err
-		}
-
-		h.emitParticipantsChange(session, s.Participants)
-
-		return nil
+		return s, nil
 	})
 
 	switch err {
@@ -215,11 +174,13 @@ func (h *Handler) kickParticipant(w http.ResponseWriter, r *http.Request) {
 	case errInvalidParticipant:
 		showError(w, http.StatusBadRequest, "not a participant", nil)
 		return
-	case store.ErrLocking:
+	case store.ErrVersionMismatch:
 		showError(w, http.StatusInternalServerError, "locking error, try again later", nil)
 		return
 	default:
 		showStoreError(w, err)
 		return
 	}
+
+	h.emitParticipantsChange(id, saved.Participants)
 }

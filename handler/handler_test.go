@@ -125,9 +125,6 @@ func TestVote(t *testing.T) {
 		assert.Exactly(t, event.Disabled, got.Kind)
 	}
 	if got := <-cEvents; assert.NotNil(t, got) {
-		assert.Exactly(t, event.Disabled, got.Kind)
-	}
-	if got := <-cEvents; assert.NotNil(t, got) {
 		assert.Exactly(t, event.Vote, got.Kind)
 		assert.Exactly(t,
 			&handler.VotesChangedData{
@@ -137,6 +134,9 @@ func TestVote(t *testing.T) {
 				},
 			},
 			got.Data)
+	}
+	if got := <-cEvents; assert.NotNil(t, got) {
+		assert.Exactly(t, event.Disabled, got.Kind)
 	}
 }
 
@@ -375,7 +375,7 @@ func sessionWithChoices(choices ...string) *domain.Session {
 }
 
 func insertToStore(t *testing.T, s store.Store, id string, session *domain.Session) {
-	require.NoError(t, s.Create(id, session))
+	require.NoError(t, s.Save(id, session))
 }
 
 func readFromStore(t *testing.T, s store.Store, id string) *domain.Session {

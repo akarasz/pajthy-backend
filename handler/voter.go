@@ -38,24 +38,18 @@ func (h *Handler) choices(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) vote(w http.ResponseWriter, r *http.Request) {
-	session := mux.Vars(r)["session"]
+	id := mux.Vars(r)["session"]
 
 	var v domain.Vote
 	if err := readContent(w, r, &v); err != nil {
 		return
 	}
 
-	log.Printf("vote %q %q", session, v)
+	log.Printf("vote %q %q", id, v)
 
-	err := store.OptimisticLocking(func() error {
-		ss, err := h.store.Load(session)
-		if err != nil {
-			return err
-		}
-		s := ss.Data
-
+	saved, err := store.ReadModifyWrite(id, h.store, func(s *domain.Session) (*domain.Session, error) {
 		if !s.Open {
-			return errClosedSession
+			return nil, errClosedSession
 		}
 
 		hasVoter := false
@@ -66,7 +60,7 @@ func (h *Handler) vote(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 		if !hasVoter {
-			return errInvalidParticipant
+			return nil, errInvalidParticipant
 		}
 
 		hasChoice := false
@@ -77,23 +71,14 @@ func (h *Handler) vote(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 		if !hasChoice {
-			return errInvalidChoice
+			return nil, errInvalidChoice
 		}
 
 		s.Votes[v.Participant] = v.Choice
 
-		if len(s.Votes) == len(s.Participants) {
-			s.Open = false
-			h.emitVoteDisabled(session)
-		}
+		s.Open = len(s.Votes) < len(s.Participants)
 
-		if err = h.store.Update(session, ss); err != nil {
-			return err
-		}
-
-		h.emitVote(session, s.Votes)
-
-		return nil
+		return s, nil
 	})
 
 	switch err {
@@ -112,40 +97,32 @@ func (h *Handler) vote(w http.ResponseWriter, r *http.Request) {
 		showStoreError(w, err)
 		return
 	}
+
+	h.emitVote(id, saved.Votes)
+	if !saved.Open {
+		h.emitVoteDisabled(id)
+	}
 }
 
 func (h *Handler) join(w http.ResponseWriter, r *http.Request) {
-	session := mux.Vars(r)["session"]
+	id := mux.Vars(r)["session"]
 
 	var name string
 	if err := readContent(w, r, &name); err != nil {
 		return
 	}
 
-	log.Printf("join %q %q", session, name)
+	log.Printf("join %q %q", id, name)
 
-	err := store.OptimisticLocking(func() error {
-		ss, err := h.store.Load(session)
-		if err != nil {
-			return err
-		}
-		s := ss.Data
-
+	saved, err := store.ReadModifyWrite(id, h.store, func(s *domain.Session) (*domain.Session, error) {
 		for _, p := range s.Participants {
 			if p == name {
-				return errAlreadyJoined
+				return nil, errAlreadyJoined
 			}
 		}
 		s.Participants = append(s.Participants, name)
 
-		err = h.store.Update(session, ss)
-		if err != nil {
-			return err
-		}
-
-		h.emitParticipantsChange(session, s.Participants)
-
-		return nil
+		return s, nil
 	})
 
 	switch err {
@@ -158,4 +135,6 @@ func (h *Handler) join(w http.ResponseWriter, r *http.Request) {
 		showStoreError(w, err)
 		return
 	}
+
+	h.emitParticipantsChange(id, saved.Participants)
 }

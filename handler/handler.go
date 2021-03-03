@@ -104,8 +104,6 @@ func showJSON(w http.ResponseWriter, payload interface{}) error {
 func showStoreError(w http.ResponseWriter, err error) {
 	if errors.Is(err, store.ErrNotExists) {
 		showError(w, http.StatusNotFound, "session not exists", err)
-	} else if errors.Is(err, store.ErrAlreadyExists) {
-		showError(w, http.StatusConflict, "session already exists", err)
 	} else {
 		showError(w, http.StatusInternalServerError, "unknown error", err)
 	}

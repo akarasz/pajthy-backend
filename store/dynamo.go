@@ -9,6 +9,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/expression"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
+	"github.com/google/uuid"
 
 	"github.com/akarasz/pajthy-backend/domain"
 )
@@ -48,75 +49,6 @@ func newDynamoItem(id string, s *Session) *dynamoItem {
 	}
 }
 
-func (d *DynamoDB) Create(id string, created *domain.Session) error {
-	item, err := attributevalue.MarshalMap(newDynamoItem(id, WithNewVersion(created)))
-	if err != nil {
-		return err
-	}
-
-	notExists := expression.AttributeNotExists(expression.Name("SessionID"))
-	expr, err := expression.NewBuilder().
-		WithCondition(notExists).
-		Build()
-	if err != nil {
-		return err
-	}
-
-	req := &dynamodb.PutItemInput{
-		TableName:                d.table,
-		Item:                     item,
-		ConditionExpression:      expr.Condition(),
-		ExpressionAttributeNames: expr.Names(),
-	}
-
-	_, err = d.client.PutItem(context.TODO(), req)
-	if err != nil {
-		var ccfe *types.ConditionalCheckFailedException
-		if errors.As(err, &ccfe) {
-			return ErrAlreadyExists
-		}
-
-		return err
-	}
-
-	return nil
-}
-
-func (d *DynamoDB) Update(id string, updated *Session) error {
-	item, err := attributevalue.MarshalMap(newDynamoItem(id, WithNewVersion(updated.Data)))
-	if err != nil {
-		return err
-	}
-
-	matchingId := expression.Equal(expression.Name("Version"), expression.Value(updated.Version))
-	expr, err := expression.NewBuilder().
-		WithCondition(matchingId).
-		Build()
-	if err != nil {
-		return err
-	}
-
-	req := &dynamodb.PutItemInput{
-		TableName:                 d.table,
-		Item:                      item,
-		ConditionExpression:       expr.Condition(),
-		ExpressionAttributeNames:  expr.Names(),
-		ExpressionAttributeValues: expr.Values(),
-	}
-
-	_, err = d.client.PutItem(context.TODO(), req)
-	if err != nil {
-		var ccfe *types.ConditionalCheckFailedException
-		if errors.As(err, &ccfe) {
-			return ErrNotExists
-		}
-
-		return err
-	}
-
-	return nil
-}
-
 func (d *DynamoDB) Load(id string) (*Session, error) {
 	key, err := attributevalue.MarshalMap(newDynamoKey(id))
 	if err != nil {
@@ -147,4 +79,52 @@ func (d *DynamoDB) Load(id string) (*Session, error) {
 	}
 
 	return item.Session, nil
+}
+
+func (d *DynamoDB) Save(id string, item *domain.Session, version ...uuid.UUID) error {
+	if len(version) > 1 {
+		return ErrVersionMismatch
+	}
+
+	data, err := attributevalue.MarshalMap(newDynamoItem(id, WithNewVersion(item)))
+	if err != nil {
+		return err
+	}
+
+	expr, err := expression.NewBuilder().
+		WithCondition(dynamoCondition(version...)).
+		Build()
+	if err != nil {
+		return err
+	}
+
+	req := &dynamodb.PutItemInput{
+		TableName:                 d.table,
+		Item:                      data,
+		ConditionExpression:       expr.Condition(),
+		ExpressionAttributeNames:  expr.Names(),
+		ExpressionAttributeValues: expr.Values(),
+	}
+
+	_, err = d.client.PutItem(context.TODO(), req)
+	if err != nil {
+		var ccfe *types.ConditionalCheckFailedException
+		if errors.As(err, &ccfe) {
+			return ErrVersionMismatch
+		}
+
+		return err
+	}
+
+	return nil
+}
+
+func dynamoCondition(version ...uuid.UUID) expression.ConditionBuilder {
+	if len(version) == 0 {
+		return expression.AttributeNotExists(expression.Name("SessionID"))
+	}
+
+	return expression.Equal(
+		expression.Name("Version"),
+		expression.Value(version[0]))
 }

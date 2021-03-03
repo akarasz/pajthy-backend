@@ -22,7 +22,7 @@ func (t *Suite) TestLoad() {
 	t.Equal(store.ErrNotExists, err)
 
 	created := domain.NewSession()
-	t.Require().NoError(s.Create("loadID", created))
+	t.Require().NoError(s.Save("loadID", created))
 
 	// loading should return the session
 	if got, err := s.Load("loadID"); t.NoError(err) {
@@ -30,51 +30,39 @@ func (t *Suite) TestLoad() {
 	}
 }
 
-func (t *Suite) TestCreate() {
+func (t *Suite) TestSave() {
 	s := t.Subject
 
-	// created session should be returned by load
-	want := domain.NewSession()
-	t.NoError(s.Create("createID", want))
+	// save to non-existing id with version should fail
+	t.Exactly(
+		store.ErrVersionMismatch,
+		s.Save("saveID", domain.NewSession(), uuid.Must(uuid.NewRandom())))
 
-	got, err := s.Load("createID")
-	t.Require().NoError(err)
-	t.Exactly(want, got.Data)
-
-	// creating with an existing id should return an error
-	t.Equal(store.ErrAlreadyExists, s.Create("createID", want))
-}
-
-func (t *Suite) TestUpdate() {
-	s := t.Subject
-
-	// update non existing id should return error
-	t.Equal(store.ErrNotExists, s.Update("updateID", &store.Session{}))
-
+	// save with non-existing id and without version should be ok
 	created := domain.NewSession()
-	t.Require().NoError(s.Create("updateID", created))
+	t.NoError(s.Save("saveID", created))
 
-	// updating with different version should return error
-	wrongVersion := &store.Session{
-		Data:    created,
-		Version: uuid.Must(uuid.NewRandom()),
-	}
-
-	t.Error(s.Update("updateID", wrongVersion))
-
-	// loading right after updating should return the same as updated
-	stored, err := s.Load("updateID")
+	// loading a saved item should return that item
+	saved, err := s.Load("saveID")
 	t.Require().NoError(err)
+	t.Exactly(created, saved.Data)
 
-	updated := &store.Session{
-		Data:    domain.NewSession(),
-		Version: stored.Version,
-	}
+	// save with existing id and wrong version should fail
+	t.Exactly(
+		store.ErrVersionMismatch,
+		s.Save("saveID", domain.NewSession(), uuid.Must(uuid.NewRandom())))
 
-	t.Require().NoError(s.Update("updateID", updated))
+	// saving with multiple versions should fail
+	t.Exactly(
+		store.ErrVersionMismatch,
+		s.Save("saveID", domain.NewSession(), saved.Version, uuid.Must(uuid.NewRandom())))
 
-	loaded, err := s.Load("updateID")
+	// save with existing id and right version should be ok
+	modified := domain.NewSession()
+	t.NoError(s.Save("saveID", modified, saved.Version))
+
+	// loading after updating an item should return the updated item
+	saved, err = s.Load("saveID")
 	t.Require().NoError(err)
-
-	t.Exactly(updated.Data, loaded.Data)
+	t.Exactly(modified, saved.Data)
 }

@@ -18,7 +18,7 @@ func TestParallelCreatesLoadsAndUpdates(t *testing.T) {
 	for i := 0; i < 3; i++ {
 		wg.Add(1)
 		go func(id string) {
-			s.Create(id, domain.NewSession())
+			s.Save(id, domain.NewSession())
 			wg.Done()
 		}(idFor(i))
 	}
@@ -29,12 +29,13 @@ func TestParallelCreatesLoadsAndUpdates(t *testing.T) {
 		for i := 0; i < 3; i++ {
 			wg.Add(1)
 			go func(id string) {
-				session, err := s.Load(id)
+				loaded, err := s.Load(id)
 				require.NoError(t, err)
 
-				session.Data.Open = !session.Data.Open
+				data := *loaded.Data
+				data.Open = !data.Open
 
-				err = s.Update(id, session)
+				err = s.Save(id, &data, loaded.Version)
 				require.NoError(t, err)
 				wg.Done()
 			}(idFor(j))

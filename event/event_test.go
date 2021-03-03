@@ -14,10 +14,10 @@ func TestSubscribe(t *testing.T) {
 	e := event.New()
 
 	// subscribing returns a channel where events can be emitted
-	c, err := e.Subscribe("id", event.Voter, "wsID")
+	c, err := e.Subscribe("subscribeID", event.Voter, "wsID")
 	assert.NoError(t, err)
 
-	go e.Emit("id", event.Voter, event.Enabled, "payload")
+	go e.Emit("subscribeID", event.Voter, event.Enabled, "payload")
 
 	assert.NotNil(t, <-receivePayload(c), "no event received")
 }
@@ -26,15 +26,15 @@ func TestUnsubscribe(t *testing.T) {
 	e := event.New()
 
 	// after unsubscribe emitted events are not showing on channel
-	c := mustSubscribe(t, e, "id", event.Voter, "wsID")
-	err := e.Unsubscribe("id", "wsID")
+	c := mustSubscribe(t, e, "UnsubscribeID", event.Voter, "wsID")
+	err := e.Unsubscribe("UnsubscribeID", "wsID")
 	assert.NoError(t, err)
 
-	go e.Emit("id", event.Voter, event.Enabled, "payload")
+	go e.Emit("UnsubscribeID", event.Voter, event.Enabled, "payload")
 	assert.Nil(t, <-receivePayload(c), "event received after unsubscribe")
 
 	// unsubscribing with uknown key returns an error
-	err = e.Unsubscribe("id", "wsID")
+	err = e.Unsubscribe("UnsubscribeID", "wsID")
 	assert.Error(t, err)
 }
 
@@ -68,13 +68,13 @@ func TestEmit_SendingTo(t *testing.T) {
 func TestEmit_Payload(t *testing.T) {
 	e := event.New()
 
-	c := mustSubscribe(t, e, "id", event.Voter, "wsID")
+	c := mustSubscribe(t, e, "emitPayloadID", event.Voter, "wsID")
 	want := event.NewPayload(event.Vote, &domain.Vote{
 		Participant: "Alice",
 		Choice:      "the right one",
 	})
 
-	go e.Emit("id", event.Voter, want.Kind, want.Data)
+	go e.Emit("emitPayloadID", event.Voter, want.Kind, want.Data)
 
 	if got := <-receivePayload(c); assert.NotNil(t, got) {
 		assert.Exactly(t, got, want)
@@ -93,7 +93,7 @@ func receivePayload(c chan *event.Payload) chan *event.Payload {
 		select {
 		case got := <-c:
 			res <- got
-		case <-time.After(100 * time.Millisecond):
+		case <-time.After(500 * time.Millisecond):
 			res <- nil
 			close(res)
 			return

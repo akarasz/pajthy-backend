@@ -20,38 +20,6 @@ func NewInMemory() *InMemory {
 	}
 }
 
-func (im *InMemory) Create(id string, created *domain.Session) error {
-	im.Lock()
-	defer im.Unlock()
-
-	_, ok := im.repo[id]
-	if ok {
-		return ErrAlreadyExists
-	}
-
-	im.repo[id] = WithNewVersion(created)
-
-	return nil
-}
-
-func (im *InMemory) Update(id string, updated *Session) error {
-	im.Lock()
-	defer im.Unlock()
-
-	current, ok := im.repo[id]
-	if !ok {
-		return ErrNotExists
-	}
-
-	if current.Version != updated.Version {
-		return errVersionMismatch
-	}
-
-	updated.Version = uuid.Must(uuid.NewRandom())
-	im.repo[id] = updated
-	return nil
-}
-
 func (im *InMemory) Load(id string) (*Session, error) {
 	im.RLock()
 	defer im.RUnlock()
@@ -62,4 +30,21 @@ func (im *InMemory) Load(id string) (*Session, error) {
 	}
 
 	return saved, nil
+}
+
+func (im *InMemory) Save(id string, item *domain.Session, version ...uuid.UUID) error {
+	if len(version) > 1 {
+		return ErrVersionMismatch
+	}
+
+	im.Lock()
+	defer im.Unlock()
+
+	current, exists := im.repo[id]
+	if (exists && (len(version) == 0 || current.Version != version[0])) || (!exists && len(version) != 0) {
+		return ErrVersionMismatch
+	}
+
+	im.repo[id] = WithNewVersion(item)
+	return nil
 }
