@@ -93,6 +93,9 @@ func (h *Handler) vote(w http.ResponseWriter, r *http.Request) {
 	case errInvalidChoice:
 		showError(w, http.StatusBadRequest, "not a valid choice", nil)
 		return
+	case store.ErrVersionMismatch:
+		showError(w, http.StatusInternalServerError, "locking error, try again later", nil)
+		return
 	default:
 		showStoreError(w, err)
 		return
@@ -130,6 +133,9 @@ func (h *Handler) join(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusCreated)
 	case errAlreadyJoined:
 		showError(w, http.StatusConflict, "already joined", nil)
+		return
+	case store.ErrVersionMismatch:
+		showError(w, http.StatusInternalServerError, "locking error, try again later", nil)
 		return
 	default:
 		showStoreError(w, err)
