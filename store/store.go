@@ -40,15 +40,15 @@ func ReadModifyWrite(id string, s Store, modify func(*domain.Session) (*domain.S
 
 		modified, err := modify(loaded.Data)
 		if err != nil {
+			return nil, err
+		}
+
+		if err = s.Save(id, modified, loaded.Version); err != nil {
 			if err == ErrVersionMismatch {
 				time.Sleep(20 * time.Millisecond)
 				continue
 			}
 
-			return nil, err
-		}
-
-		if err = s.Save(id, modified, loaded.Version); err != nil {
 			return nil, err
 		}
 
