@@ -3,6 +3,7 @@ package handler
 import (
 	"log"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/gorilla/mux"
@@ -62,6 +63,11 @@ func (h *Handler) reader(ws *websocket.Conn, sessionID string) {
 func (h *Handler) ws(w http.ResponseWriter, r *http.Request) {
 	session := mux.Vars(r)["session"]
 
+	if strings.ToLower(r.Header.Get("Upgrade")) != "websocket" {
+		showUpgradeRequired(w)
+		return
+	}
+
 	ws, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		if _, ok := err.(websocket.HandshakeError); !ok {
@@ -89,6 +95,11 @@ func (h *Handler) ws(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) controlWS(w http.ResponseWriter, r *http.Request) {
 	session := mux.Vars(r)["session"]
+
+	if strings.ToLower(r.Header.Get("Upgrade")) != "websocket" {
+		showUpgradeRequired(w)
+		return
+	}
 
 	ws, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
@@ -155,4 +166,10 @@ func (c *Handler) emitParticipantsChange(id string, participants []string) {
 		event.Controller,
 		event.ParticipantsChange,
 		&ParticipantsChangedData{Participants: participants})
+}
+
+func showUpgradeRequired(w http.ResponseWriter) {
+	w.Header().Add("Connection", "Upgrade")
+	w.Header().Add("Upgrade", "Websocket")
+	http.Error(w, "", 426)
 }
