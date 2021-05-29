@@ -1,6 +1,6 @@
 module github.com/akarasz/pajthy-backend
 
-go 1.15
+go 1.16
 
 require (
 	github.com/aws/aws-lambda-go v1.22.0
@@ -12,8 +12,6 @@ require (
 	github.com/google/uuid v1.2.0
 	github.com/gorilla/mux v1.8.0
 	github.com/gorilla/websocket v1.4.2
-	github.com/stretchr/testify v1.6.1
-	github.com/testcontainers/testcontainers-go v0.9.0
+	github.com/stretchr/testify v1.7.0
+	github.com/testcontainers/testcontainers-go v0.10.1-0.20210331130832-54854fb15ccb
 )
-
-replace golang.org/x/sys => golang.org/x/sys v0.0.0-20190830141801-acfa387b8d69
