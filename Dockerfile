@@ -1,8 +1,15 @@
-FROM golang:alpine AS builder
+FROM golang:1.16-alpine AS builder
 
-COPY . /build
 WORKDIR /build
-RUN go mod vendor && go build -o main ./cmd/server
+
+COPY go.mod .
+COPY go.sum .
+
+RUN go mod download -x
+
+COPY . .
+
+RUN go build -o main ./cmd/server
 
 FROM alpine:latest
 
