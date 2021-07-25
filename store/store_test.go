@@ -1,12 +1,25 @@
 package store_test
 
 import (
+	"os"
+	"testing"
+
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/suite"
 
 	"github.com/akarasz/pajthy-backend/domain"
 	"github.com/akarasz/pajthy-backend/store"
 )
+
+func TestMain(m *testing.M) {
+	dynamoTeardown, err := dynamoSetup()
+	if err != nil {
+		os.Exit(1)
+	}
+	defer dynamoTeardown()
+
+	os.Exit(m.Run())
+}
 
 type Suite struct {
 	suite.Suite

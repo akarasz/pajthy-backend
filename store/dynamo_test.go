@@ -10,7 +10,6 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
-	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 
 	"github.com/akarasz/pajthy-backend/store"
@@ -18,11 +17,9 @@ import (
 	"github.com/testcontainers/testcontainers-go/wait"
 )
 
-func TestDynamoDB(t *testing.T) {
-	if testing.Short() {
-		t.Skip("skipping store/redis test")
-	}
+var dynamoConfig aws.Config
 
+func dynamoSetup() (teardown func(), err error) {
 	ctx := context.Background()
 	container, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
 		ContainerRequest: testcontainers.ContainerRequest{
@@ -32,13 +29,19 @@ func TestDynamoDB(t *testing.T) {
 		},
 		Started: true,
 	})
-	require.NoError(t, err)
-	defer container.Terminate(ctx)
+	if err != nil {
+		return nil, err
+	}
 
 	ip, err := container.Host(ctx)
-	require.NoError(t, err)
+	if err != nil {
+		return nil, err
+	}
+
 	port, err := container.MappedPort(ctx, "8000")
-	require.NoError(t, err)
+	if err != nil {
+		return nil, err
+	}
 
 	customResolver := aws.EndpointResolverFunc(func(service, region string) (aws.Endpoint, error) {
 		if service == dynamodb.ServiceID {
@@ -51,12 +54,14 @@ func TestDynamoDB(t *testing.T) {
 		return aws.Endpoint{}, fmt.Errorf("unknown endpoint requested")
 	})
 
-	c, err := config.LoadDefaultConfig(ctx, config.WithEndpointResolver(customResolver))
-	require.NoError(t, err)
+	dynamoConfig, err = config.LoadDefaultConfig(ctx, config.WithEndpointResolver(customResolver))
+	if err != nil {
+		return nil, err
+	}
 
-	client := dynamodb.NewFromConfig(c)
+	client := dynamodb.NewFromConfig(dynamoConfig)
 
-	_, err = client.CreateTable(context.TODO(), &dynamodb.CreateTableInput{
+	_, err = client.CreateTable(ctx, &dynamodb.CreateTableInput{
 		TableName: aws.String("testPajthy"),
 		AttributeDefinitions: []types.AttributeDefinition{
 			{
@@ -75,8 +80,24 @@ func TestDynamoDB(t *testing.T) {
 			WriteCapacityUnits: aws.Int64(5),
 		},
 	})
-	require.NoError(t, err)
+	if err != nil {
+		return nil, err
+	}
 
-	s := store.NewDynamoDB(&c, "testPajthy")
+	return func() {
+		container.Terminate(ctx)
+	}, nil
+}
+
+func TestSuite(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping store/redis test")
+	}
+
+	s := store.NewDynamoDB(&dynamoConfig, "testPajthy")
 	suite.Run(t, &Suite{Subject: s})
+}
+
+func TestAddConnection(t *testing.T) {
+
 }

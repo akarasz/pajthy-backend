@@ -82,11 +82,15 @@ func (d *DynamoDB) Load(id string) (*Session, error) {
 }
 
 func (d *DynamoDB) Save(id string, item *domain.Session, version ...uuid.UUID) error {
+	return d.saveDynamoItem(id, newDynamoItem(id, WithNewVersion(item)), version...)
+}
+
+func (d *DynamoDB) saveDynamoItem(id string, item *dynamoItem, version ...uuid.UUID) error {
 	if len(version) > 1 {
 		return ErrVersionMismatch
 	}
 
-	data, err := attributevalue.MarshalMap(newDynamoItem(id, WithNewVersion(item)))
+	data, err := attributevalue.MarshalMap(item)
 	if err != nil {
 		return err
 	}
@@ -116,6 +120,10 @@ func (d *DynamoDB) Save(id string, item *domain.Session, version ...uuid.UUID) e
 		return err
 	}
 
+	return nil
+}
+
+func (d *DynamoDB) AddConnection(id string, connectionID string) error {
 	return nil
 }
 
