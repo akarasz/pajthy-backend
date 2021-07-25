@@ -90,27 +90,31 @@ func (d *DynamoDB) saveDynamoItem(id string, item *dynamoItem, version ...uuid.U
 		return ErrVersionMismatch
 	}
 
-	data, err := attributevalue.MarshalMap(item)
+	key, err := attributevalue.MarshalMap(item.dynamoKey)
 	if err != nil {
 		return err
 	}
 
 	expr, err := expression.NewBuilder().
+		WithUpdate(expression.
+			Set(expression.Name("Data"), expression.Value(item.Data)).
+			Set(expression.Name("Version"), expression.Value(item.Version))).
 		WithCondition(dynamoCondition(version...)).
 		Build()
 	if err != nil {
 		return err
 	}
 
-	req := &dynamodb.PutItemInput{
+	req := &dynamodb.UpdateItemInput{
 		TableName:                 d.table,
-		Item:                      data,
+		Key:                       key,
 		ConditionExpression:       expr.Condition(),
+		UpdateExpression:          expr.Update(),
 		ExpressionAttributeNames:  expr.Names(),
 		ExpressionAttributeValues: expr.Values(),
 	}
 
-	_, err = d.client.PutItem(context.TODO(), req)
+	_, err = d.client.UpdateItem(context.TODO(), req)
 	if err != nil {
 		var ccfe *types.ConditionalCheckFailedException
 		if errors.As(err, &ccfe) {

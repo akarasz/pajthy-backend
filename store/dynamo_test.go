@@ -89,9 +89,9 @@ func dynamoSetup() (teardown func(), err error) {
 	}, nil
 }
 
-func TestSuite(t *testing.T) {
+func TestSuiteWithDynamo(t *testing.T) {
 	if testing.Short() {
-		t.Skip("skipping store/redis test")
+		t.Skip("skipping store/dynamo test")
 	}
 
 	s := store.NewDynamoDB(&dynamoConfig, "testPajthy")
@@ -99,5 +99,8 @@ func TestSuite(t *testing.T) {
 }
 
 func TestAddConnection(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping store/dynamo test")
+	}
 
 }
