@@ -37,14 +37,11 @@ func newDynamoKey(id string) *dynamoKey {
 	}
 }
 
-type connectionIDs struct {
-	ConnectionIDs []string `dynamodbav:",stringset"`
-}
-
 type dynamoItem struct {
 	*dynamoKey
 	*Session
-	*connectionIDs
+	VoteConnectionIDs    []string
+	ControlConnectionIDs []string
 }
 
 func (d *DynamoDB) loadDynamo(id string) (*dynamoItem, error) {
@@ -68,9 +65,8 @@ func (d *DynamoDB) loadDynamo(id string) (*dynamoItem, error) {
 	}
 
 	item := dynamoItem{
-		&dynamoKey{},
-		&Session{},
-		&connectionIDs{},
+		dynamoKey: &dynamoKey{},
+		Session:   &Session{},
 	}
 	err = attributevalue.UnmarshalMap(res.Item, &item)
 	if err != nil {
@@ -131,7 +127,15 @@ func (d *DynamoDB) Save(id string, item *domain.Session, version ...uuid.UUID) e
 	return nil
 }
 
-func (d *DynamoDB) AddConnection(id string, connectionID string) error {
+func (d *DynamoDB) AddVoteConnection(id string, connectionID string) error {
+	return d.addConnection(id, "VoteConnectionIDs", connectionID)
+}
+
+func (d *DynamoDB) AddControlConnection(id string, connectionID string) error {
+	return d.addConnection(id, "ControlConnectionIDs", connectionID)
+}
+
+func (d *DynamoDB) addConnection(id string, name, connectionID string) error {
 	key, err := attributevalue.MarshalMap(newDynamoKey(id))
 	if err != nil {
 		return err
@@ -140,7 +144,7 @@ func (d *DynamoDB) AddConnection(id string, connectionID string) error {
 	expr, err := expression.NewBuilder().
 		WithUpdate(expression.
 			Add(
-				expression.Name("ConnectionIDs"),
+				expression.Name(name),
 				expression.Value(types.AttributeValueMemberSS{
 					Value: []string{connectionID},
 				}))).
@@ -172,13 +176,22 @@ func (d *DynamoDB) AddConnection(id string, connectionID string) error {
 	return nil
 }
 
-func (d *DynamoDB) GetConnections(id string) ([]string, error) {
+func (d *DynamoDB) GetVoteConnections(id string) ([]string, error) {
 	item, err := d.loadDynamo(id)
 	if err != nil {
 		return nil, err
 	}
 
-	return item.ConnectionIDs, nil
+	return item.VoteConnectionIDs, nil
+}
+
+func (d *DynamoDB) GetControlConnections(id string) ([]string, error) {
+	item, err := d.loadDynamo(id)
+	if err != nil {
+		return nil, err
+	}
+
+	return item.ControlConnectionIDs, nil
 }
 
 func (d *DynamoDB) versionCheck(version ...uuid.UUID) expression.ConditionBuilder {

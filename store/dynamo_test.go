@@ -97,41 +97,83 @@ func TestSuiteWithDynamo(t *testing.T) {
 	suite.Run(t, &Suite{Subject: s})
 }
 
-func TestGetConnections(t *testing.T) {
+func TestGetVoteConnections(t *testing.T) {
 	s := store.NewDynamoDB(&dynamoConfig, "testPajthy")
 
 	// get connections for a non-existing session should return error
-	_, err := s.GetConnections("getConnections")
+	_, err := s.GetVoteConnections("getVoteConnections")
 	assert.Equal(t, store.ErrNotExists, err)
 
-	require.NoError(t, s.Save("getConnections", domain.NewSession()))
-	require.NoError(t, s.AddConnection("getConnections", "testID1"))
-	require.NoError(t, s.AddConnection("getConnections", "testID2"))
+	require.NoError(t, s.Save("getVoteConnections", domain.NewSession()))
+	require.NoError(t, s.AddVoteConnection("getVoteConnections", "testID1"))
+	require.NoError(t, s.AddVoteConnection("getVoteConnections", "testID2"))
 
-	got, err := s.GetConnections("getConnections")
+	got, err := s.GetVoteConnections("getVoteConnections")
 	assert.NoError(t, err)
 	assert.Contains(t, got, "testID1")
 	assert.Contains(t, got, "testID2")
 }
 
-func TestAddConnection(t *testing.T) {
+func TestGetControlConnections(t *testing.T) {
+	s := store.NewDynamoDB(&dynamoConfig, "testPajthy")
+
+	// get connections for a non-existing session should return error
+	_, err := s.GetControlConnections("getControlConnections")
+	assert.Equal(t, store.ErrNotExists, err)
+
+	require.NoError(t, s.Save("getControlConnections", domain.NewSession()))
+	require.NoError(t, s.AddControlConnection("getControlConnections", "testID1"))
+	require.NoError(t, s.AddControlConnection("getControlConnections", "testID2"))
+
+	got, err := s.GetControlConnections("getControlConnections")
+	assert.NoError(t, err)
+	assert.Contains(t, got, "testID1")
+	assert.Contains(t, got, "testID2")
+}
+
+func TestAddVoteConnection(t *testing.T) {
 	s := store.NewDynamoDB(&dynamoConfig, "testPajthy")
 
 	// add a connection to a non-existing session should return error
-	err := s.AddConnection("addConnection", "testID")
+	err := s.AddVoteConnection("addVoteConnection", "testID")
 	assert.Equal(t, store.ErrNotExists, err)
 
-	require.NoError(t, s.Save("addConnection", domain.NewSession()))
+	require.NoError(t, s.Save("addVoteConnection", domain.NewSession()))
 
 	// adding a connection to an existing session should be ok
-	err = s.AddConnection("addConnection", "testID")
+	err = s.AddVoteConnection("addVoteConnection", "testID")
 	assert.NoError(t, err)
 
 	// adding another one should be still ok
-	err = s.AddConnection("addConnection", "testID2")
+	err = s.AddVoteConnection("addVoteConnection", "testID2")
 	assert.NoError(t, err)
 
-	got, err := s.GetConnections("addConnection")
+	got, err := s.GetVoteConnections("addVoteConnection")
+	require.NoError(t, err)
+
+	// should contain the added testID
+	assert.Contains(t, got, "testID")
+	assert.Contains(t, got, "testID2")
+}
+
+func TestAddControlConnection(t *testing.T) {
+	s := store.NewDynamoDB(&dynamoConfig, "testPajthy")
+
+	// add a connection to a non-existing session should return error
+	err := s.AddControlConnection("addControlConnection", "testID")
+	assert.Equal(t, store.ErrNotExists, err)
+
+	require.NoError(t, s.Save("addControlConnection", domain.NewSession()))
+
+	// adding a connection to an existing session should be ok
+	err = s.AddControlConnection("addControlConnection", "testID")
+	assert.NoError(t, err)
+
+	// adding another one should be still ok
+	err = s.AddControlConnection("addControlConnection", "testID2")
+	assert.NoError(t, err)
+
+	got, err := s.GetControlConnections("addControlConnection")
 	require.NoError(t, err)
 
 	// should contain the added testID
