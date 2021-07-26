@@ -38,7 +38,7 @@ func newDynamoKey(id string) *dynamoKey {
 }
 
 type connectionIDs struct {
-	ConnectionIDs []string
+	ConnectionIDs []string `dynamodbav:",stringset"`
 }
 
 type dynamoItem struct {
@@ -139,7 +139,11 @@ func (d *DynamoDB) AddConnection(id string, connectionID string) error {
 
 	expr, err := expression.NewBuilder().
 		WithUpdate(expression.
-			Add(expression.Name("ConnectionIDs"), expression.Value(aws.StringSlice([]string{connectionID})))).
+			Add(
+				expression.Name("ConnectionIDs"),
+				expression.Value(types.AttributeValueMemberSS{
+					Value: []string{connectionID},
+				}))).
 		WithCondition(expression.AttributeExists(expression.Name("SessionID"))).
 		Build()
 	if err != nil {
@@ -150,6 +154,7 @@ func (d *DynamoDB) AddConnection(id string, connectionID string) error {
 		TableName:                 d.table,
 		Key:                       key,
 		UpdateExpression:          expr.Update(),
+		ConditionExpression:       expr.Condition(),
 		ExpressionAttributeNames:  expr.Names(),
 		ExpressionAttributeValues: expr.Values(),
 	}

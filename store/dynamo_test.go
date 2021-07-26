@@ -108,7 +108,7 @@ func TestGetConnections(t *testing.T) {
 	require.NoError(t, s.AddConnection("getConnections", "testID1"))
 	require.NoError(t, s.AddConnection("getConnections", "testID2"))
 
-	got, err := s.GetConnections("GetConnections")
+	got, err := s.GetConnections("getConnections")
 	assert.NoError(t, err)
 	assert.Contains(t, got, "testID1")
 	assert.Contains(t, got, "testID2")
