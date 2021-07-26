@@ -12,7 +12,10 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"github.com/stretchr/testify/suite"
 
+	"github.com/akarasz/pajthy-backend/domain"
 	"github.com/akarasz/pajthy-backend/store"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/wait"
 )
@@ -90,17 +93,48 @@ func dynamoSetup() (teardown func(), err error) {
 }
 
 func TestSuiteWithDynamo(t *testing.T) {
-	if testing.Short() {
-		t.Skip("skipping store/dynamo test")
-	}
-
 	s := store.NewDynamoDB(&dynamoConfig, "testPajthy")
 	suite.Run(t, &Suite{Subject: s})
 }
 
-func TestAddConnection(t *testing.T) {
-	if testing.Short() {
-		t.Skip("skipping store/dynamo test")
-	}
+func TestGetConnections(t *testing.T) {
+	s := store.NewDynamoDB(&dynamoConfig, "testPajthy")
 
+	// get connections for a non-existing session should return error
+	_, err := s.GetConnections("getConnections")
+	assert.Equal(t, store.ErrNotExists, err)
+
+	require.NoError(t, s.Save("getConnections", domain.NewSession()))
+	require.NoError(t, s.AddConnection("getConnections", "testID1"))
+	require.NoError(t, s.AddConnection("getConnections", "testID2"))
+
+	got, err := s.GetConnections("GetConnections")
+	assert.NoError(t, err)
+	assert.Contains(t, got, "testID1")
+	assert.Contains(t, got, "testID2")
+}
+
+func TestAddConnection(t *testing.T) {
+	s := store.NewDynamoDB(&dynamoConfig, "testPajthy")
+
+	// add a connection to a non-existing session should return error
+	err := s.AddConnection("addConnection", "testID")
+	assert.Equal(t, store.ErrNotExists, err)
+
+	require.NoError(t, s.Save("addConnection", domain.NewSession()))
+
+	// adding a connection to an existing session should be ok
+	err = s.AddConnection("addConnection", "testID")
+	assert.NoError(t, err)
+
+	// adding another one should be still ok
+	err = s.AddConnection("addConnection", "testID2")
+	assert.NoError(t, err)
+
+	got, err := s.GetConnections("addConnection")
+	require.NoError(t, err)
+
+	// should contain the added testID
+	assert.Contains(t, got, "testID")
+	assert.Contains(t, got, "testID2")
 }

@@ -37,19 +37,17 @@ func newDynamoKey(id string) *dynamoKey {
 	}
 }
 
+type connectionIDs struct {
+	ConnectionIDs []string
+}
+
 type dynamoItem struct {
 	*dynamoKey
 	*Session
+	*connectionIDs
 }
 
-func newDynamoItem(id string, s *Session) *dynamoItem {
-	return &dynamoItem{
-		newDynamoKey(id),
-		s,
-	}
-}
-
-func (d *DynamoDB) Load(id string) (*Session, error) {
+func (d *DynamoDB) loadDynamo(id string) (*dynamoItem, error) {
 	key, err := attributevalue.MarshalMap(newDynamoKey(id))
 	if err != nil {
 		return nil, err
@@ -72,8 +70,18 @@ func (d *DynamoDB) Load(id string) (*Session, error) {
 	item := dynamoItem{
 		&dynamoKey{},
 		&Session{},
+		&connectionIDs{},
 	}
 	err = attributevalue.UnmarshalMap(res.Item, &item)
+	if err != nil {
+		return nil, err
+	}
+
+	return &item, nil
+}
+
+func (d *DynamoDB) Load(id string) (*Session, error) {
+	item, err := d.loadDynamo(id)
 	if err != nil {
 		return nil, err
 	}
@@ -82,24 +90,20 @@ func (d *DynamoDB) Load(id string) (*Session, error) {
 }
 
 func (d *DynamoDB) Save(id string, item *domain.Session, version ...uuid.UUID) error {
-	return d.saveDynamoItem(id, newDynamoItem(id, WithNewVersion(item)), version...)
-}
-
-func (d *DynamoDB) saveDynamoItem(id string, item *dynamoItem, version ...uuid.UUID) error {
 	if len(version) > 1 {
 		return ErrVersionMismatch
 	}
 
-	key, err := attributevalue.MarshalMap(item.dynamoKey)
+	key, err := attributevalue.MarshalMap(newDynamoKey(id))
 	if err != nil {
 		return err
 	}
 
 	expr, err := expression.NewBuilder().
 		WithUpdate(expression.
-			Set(expression.Name("Data"), expression.Value(item.Data)).
-			Set(expression.Name("Version"), expression.Value(item.Version))).
-		WithCondition(dynamoCondition(version...)).
+			Set(expression.Name("Data"), expression.Value(item)).
+			Set(expression.Name("Version"), expression.Value(WithNewVersion(item).Version))).
+		WithCondition(d.versionCheck(version...)).
 		Build()
 	if err != nil {
 		return err
@@ -128,10 +132,51 @@ func (d *DynamoDB) saveDynamoItem(id string, item *dynamoItem, version ...uuid.U
 }
 
 func (d *DynamoDB) AddConnection(id string, connectionID string) error {
+	key, err := attributevalue.MarshalMap(newDynamoKey(id))
+	if err != nil {
+		return err
+	}
+
+	expr, err := expression.NewBuilder().
+		WithUpdate(expression.
+			Add(expression.Name("ConnectionIDs"), expression.Value(aws.StringSlice([]string{connectionID})))).
+		WithCondition(expression.AttributeExists(expression.Name("SessionID"))).
+		Build()
+	if err != nil {
+		return err
+	}
+
+	req := &dynamodb.UpdateItemInput{
+		TableName:                 d.table,
+		Key:                       key,
+		UpdateExpression:          expr.Update(),
+		ExpressionAttributeNames:  expr.Names(),
+		ExpressionAttributeValues: expr.Values(),
+	}
+
+	_, err = d.client.UpdateItem(context.TODO(), req)
+	if err != nil {
+		var ccfe *types.ConditionalCheckFailedException
+		if errors.As(err, &ccfe) {
+			return ErrNotExists
+		}
+
+		return err
+	}
+
 	return nil
 }
 
-func dynamoCondition(version ...uuid.UUID) expression.ConditionBuilder {
+func (d *DynamoDB) GetConnections(id string) ([]string, error) {
+	item, err := d.loadDynamo(id)
+	if err != nil {
+		return nil, err
+	}
+
+	return item.ConnectionIDs, nil
+}
+
+func (d *DynamoDB) versionCheck(version ...uuid.UUID) expression.ConditionBuilder {
 	if len(version) == 0 {
 		return expression.AttributeNotExists(expression.Name("SessionID"))
 	}
