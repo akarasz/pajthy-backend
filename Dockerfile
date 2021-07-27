@@ -9,7 +9,7 @@ RUN go mod download -x
 
 COPY . .
 
-RUN go build -o main ./cmd/server
+RUN go build -o main ./cmd/standalone
 
 FROM alpine:latest
 
