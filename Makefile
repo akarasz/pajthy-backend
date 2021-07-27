@@ -4,22 +4,29 @@ version = `git fetch --tags >/dev/null && git describe --tags | cut -c 2-`
 docker_container = akarasz/pajthy-backend
 docker_tags = $(version),latest
 
-.PHONY := build
-build:
-	go build ./...
-
-.PHONY := test
-test: build
-	go test -race --count=1 ./...
-
 .PHONY := docker
-docker: test
-	docker build -t "$(docker_container):latest" -t "$(docker_container):$(version)" .
+docker:
+	docker build -t "$(docker_container):latest" .
 
 .PHONY := run
 run: docker
-	docker run -p 8000:8000 "$(docker_container):latest"
+	docker run --rm -i -t -p 8000:8000 "$(docker_container):latest"
 
-push: docker
+.PHONY := release
+release: docker
+	docker tag $(docker_container):latest $(docker_container):$(version)
+
+.PHONY := push
+push: release
 	docker push $(docker_container):latest
 	docker push $(docker_container):$(version)
+
+# testing
+
+.PHONY := test
+test:
+	go test -v ./...
+
+.PHONY := test-long
+test-long:
+	go test -v -race -count=1 ./...

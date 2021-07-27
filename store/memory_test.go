@@ -8,7 +8,7 @@ import (
 	"github.com/akarasz/pajthy-backend/store"
 )
 
-func TestInMemory(t *testing.T) {
+func TestSuiteWithInMemory(t *testing.T) {
 	s := store.NewInMemory()
 	suite.Run(t, &Suite{Subject: s})
 }

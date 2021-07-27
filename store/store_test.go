@@ -1,12 +1,25 @@
 package store_test
 
 import (
+	"os"
+	"testing"
+
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/suite"
 
 	"github.com/akarasz/pajthy-backend/domain"
 	"github.com/akarasz/pajthy-backend/store"
 )
+
+func TestMain(m *testing.M) {
+	dynamoTeardown, err := dynamoSetup()
+	if err != nil {
+		os.Exit(1)
+	}
+	defer dynamoTeardown()
+
+	os.Exit(m.Run())
+}
 
 type Suite struct {
 	suite.Suite
@@ -40,6 +53,7 @@ func (t *Suite) TestSave() {
 
 	// save with non-existing id and without version should be ok
 	created := domain.NewSession()
+	created.Choices = []string{"a", "b"}
 	t.NoError(s.Save("saveID", created))
 
 	// loading a saved item should return that item
@@ -59,6 +73,7 @@ func (t *Suite) TestSave() {
 
 	// save with existing id and right version should be ok
 	modified := domain.NewSession()
+	modified.Choices = []string{"c", "d"}
 	t.NoError(s.Save("saveID", modified, saved.Version))
 
 	// loading after updating an item should return the updated item
